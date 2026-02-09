@@ -4,28 +4,18 @@ import java.lang.ref.WeakReference;
 import java.util.function.Predicate;
 
 import com.simibubi.create.infrastructure.fabric.transfer.fluid.FluidStack;
-import com.simibubi.create.infrastructure.fabric.transfer.TransferUtil;
 
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.ResourceAmount;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-
-import org.jetbrains.annotations.Nullable;
 
 import com.simibubi.create.foundation.ICapabilityProvider;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 
 import net.createmod.catnip.math.BlockFace;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
-import net.fabricmc.fabric.api.transfer.v1.storage.base.ResourceAmount;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
+import net.fabricmc.fabric.api.transfer.v1.storage.StorageView;
 
-import com.simibubi.create.infrastructure.fabric.transfer.fluid.FluidStack;
-import com.simibubi.create.infrastructure.fabric.transfer.TransferUtil;
 import io.github.fabricators_of_create.porting_lib.util.StorageProvider;
 
 public abstract class FlowSource {
@@ -40,11 +30,13 @@ public abstract class FlowSource {
 		Storage<FluidVariant> tank = provideHandler();
 		if (tank == null)
 			return FluidStack.EMPTY;
-		try (Transaction t = Transaction.openOuter()) {
-			Predicate<FluidVariant> test = v -> extractionPredicate.test(new FluidStack(v, 1));
-			ResourceAmount<FluidVariant> resource = TransferUtil.extractMatching(tank, test, 1, t);
-			return resource == null ? FluidStack.EMPTY : new FluidStack(resource.resource(), resource.amount());
+		for (StorageView<FluidVariant> view : tank.nonEmptyViews()) {
+			FluidStack candidate = new FluidStack(view.getResource(), 1);
+			if (extractionPredicate.test(candidate)) {
+				return candidate;
+			}
 		}
+		return FluidStack.EMPTY;
 	}
 
 	// Layer III. PFIs need active attention to prevent them from disengaging early

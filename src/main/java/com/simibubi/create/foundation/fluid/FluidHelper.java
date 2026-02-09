@@ -127,7 +127,7 @@ public class FluidHelper {
 				return false;
 
 			ItemStack copyOfHeld = heldItem.copy();
-			emptyingResult = GenericItemEmptying.emptyItem(worldIn, copyOfHeld, false);
+			emptyingResult = GenericItemEmptying.emptyItem(worldIn, copyOfHeld, false, t);
 			t.commit();
 
 			if (!player.isCreative() && !(be instanceof CreativeFluidTankBlockEntity)) {

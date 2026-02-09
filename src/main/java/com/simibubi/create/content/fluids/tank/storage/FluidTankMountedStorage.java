@@ -96,6 +96,9 @@ public class FluidTankMountedStorage extends WrapperMountedFluidStorage<Handler>
 	public static FluidTankMountedStorage fromLegacy(HolderLookup.Provider registries, CompoundTag nbt) {
 		int capacity = nbt.getInt("Capacity");
 		FluidStack fluid = FluidStack.parseOptional(registries, nbt);
+		if (capacity > 0 && fluid.getAmount() > capacity) {
+			fluid = fluid.copyWithAmount(capacity);
+		}
 		return new FluidTankMountedStorage(capacity, fluid);
 	}
 

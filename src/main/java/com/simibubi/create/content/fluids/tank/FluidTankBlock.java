@@ -174,7 +174,7 @@ public class FluidTankBlock extends Block implements IWrenchable, IBE<FluidTankB
 
 		if (stack.isEmpty())
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-		if (!player.isCreative() && !creative)
+		if (!player.isCreative() && creative)
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 
 		FluidExchange exchange = null;

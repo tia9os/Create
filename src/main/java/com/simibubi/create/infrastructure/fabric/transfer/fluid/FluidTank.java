@@ -42,8 +42,18 @@ public class FluidTank extends SingleFluidStorage {
 	protected void onContentsChanged() {
 	}
 
+	@Override
+	protected void onFinalCommit() {
+		super.onFinalCommit();
+		this.onContentsChanged();
+	}
+
 	public void readFromNBT(HolderLookup.Provider registries, CompoundTag nbt) {
-		this.setFluid(FluidStack.parseOptional(registries, nbt));
+		FluidStack parsed = FluidStack.parseOptional(registries, nbt);
+		if (this.capacity > 0 && parsed.getAmount() > this.capacity) {
+			parsed = parsed.copyWithAmount(this.capacity);
+		}
+		this.setFluid(parsed);
 	}
 
 	public CompoundTag writeToNBT(HolderLookup.Provider registries, CompoundTag nbt) {

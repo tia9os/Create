@@ -287,7 +287,7 @@ public class ItemDrainBlockEntity extends SmartBlockEntity implements IHaveGoggl
 				return true;
 			}
 
-			emptyItem = GenericItemEmptying.emptyItem(level, heldItem.stack.copy(), false);
+			emptyItem = GenericItemEmptying.emptyItem(level, heldItem.stack.copy(), false, t);
 			award(AllAdvancements.DRAIN);
 
 			// Process finished

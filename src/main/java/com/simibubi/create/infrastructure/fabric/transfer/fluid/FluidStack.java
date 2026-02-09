@@ -29,6 +29,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluids;
 
 import org.jetbrains.annotations.Nullable;
@@ -94,6 +95,30 @@ public final class FluidStack implements DataComponentHolder {
 
 	public FluidStack(ResourceAmount<FluidVariant> resource) {
 		this(resource.resource(), resource.amount());
+	}
+
+	private static FluidStack normalizeDecoded(FluidStack stack) {
+		if (stack.isEmpty()) {
+			return EMPTY;
+		}
+
+		Fluid fluid = stack.getFluid();
+		Fluid source = fluid instanceof FlowingFluid flowing ? flowing.getSource() : fluid;
+		DataComponentPatch components = stack.getComponentsPatch();
+
+		// Legacy saves can carry unexpected components on vanilla fluids, which can break rendering and matching.
+		if (source == Fluids.WATER || source == Fluids.LAVA) {
+			components = DataComponentPatch.EMPTY;
+		}
+
+		if (source == fluid && components.equals(stack.getComponentsPatch())) {
+			return stack;
+		}
+
+		FluidVariant normalized = components.isEmpty()
+			? TransferUtil.fluidVariantOf(source)
+			: TransferUtil.fluidVariantOf(source, components);
+		return new FluidStack(normalized, stack.getAmount());
 	}
 
 	private static FluidStack fromCodecData(Fluid fluid, DataComponentPatch components, long amount) {
@@ -185,9 +210,19 @@ public final class FluidStack implements DataComponentHolder {
 	}
 
 	public static boolean isSameFluidSameComponents(FluidStack first, FluidStack second) {
-		if (!first.variant.isOf(second.variant.getFluid()))
+		Fluid firstFluid = first.getFluid();
+		Fluid secondFluid = second.getFluid();
+		if (firstFluid instanceof FlowingFluid firstFlowing) {
+			firstFluid = firstFlowing.getSource();
+		}
+		if (secondFluid instanceof FlowingFluid secondFlowing) {
+			secondFluid = secondFlowing.getSource();
+		}
+		if (firstFluid != secondFluid)
 			return false;
-
+		// Legacy/vanilla water and lava should remain compatible even when old component data lingers.
+		if (firstFluid == Fluids.WATER || firstFluid == Fluids.LAVA)
+			return true;
 		return first.variant.componentsMatch(second.variant.getComponents());
 	}
 
@@ -199,7 +234,26 @@ public final class FluidStack implements DataComponentHolder {
 	}
 
 	public static FluidStack parseOptional(HolderLookup.Provider registries, CompoundTag tag) {
-		return tag.isEmpty() ? EMPTY : parse(registries, tag).orElse(EMPTY);
+		if (tag.isEmpty()) {
+			return EMPTY;
+		}
+
+		CompoundTag current = tag;
+		// Backward compatibility: many holders wrap the encoded fluid under one or more "Fluid" compounds.
+		for (int depth = 0; depth < 4; depth++) {
+			if (current.isEmpty()) {
+				return EMPTY;
+			}
+			if (current.contains("fluid", Tag.TAG_STRING) || current.contains("amount", Tag.TAG_ANY_NUMERIC)) {
+				break;
+			}
+			if (!current.contains("Fluid", Tag.TAG_COMPOUND)) {
+				break;
+			}
+			current = current.getCompound("Fluid");
+		}
+
+		return normalizeDecoded(parse(registries, current).orElse(EMPTY));
 	}
 
 	public static FluidStack of(@Nullable ResourceAmount<FluidVariant> resource) {
