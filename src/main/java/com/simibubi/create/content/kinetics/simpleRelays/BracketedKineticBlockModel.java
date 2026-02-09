@@ -1,19 +1,18 @@
 package com.simibubi.create.content.kinetics.simpleRelays;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Supplier;
 
 import com.simibubi.create.content.decoration.bracket.BracketedBlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 
 import dev.engine_room.flywheel.lib.model.baked.EmptyVirtualBlockGetter;
-
-import net.fabricmc.fabric.api.renderer.v1.model.ForwardingBakedModel;
-
-import net.fabricmc.fabric.api.renderer.v1.render.RenderContext;
-
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,6 +29,11 @@ public class BracketedKineticBlockModel extends ForwardingBakedModel {
 	@Override
 	public boolean isVanillaAdapter() {
 		return false;
+	}
+
+	@Override
+	public List<BakedQuad> getQuads(BlockState state, Direction side, RandomSource random) {
+		return Collections.emptyList();
 	}
 
 	@Override

@@ -1,10 +1,15 @@
 package com.simibubi.create.foundation.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.simibubi.create.foundation.block.render.CustomBlockModels;
+import com.simibubi.create.foundation.item.render.CustomRenderedItemModel;
+import com.simibubi.create.foundation.item.render.CustomRenderedItems;
 import com.simibubi.create.foundation.item.render.CustomItemModels;
+import com.tterrag.registrate.util.nullness.NonNullFunction;
 
 import net.createmod.catnip.registry.RegisteredObjectsHelper;
 import net.minecraft.client.renderer.block.BlockModelShaper;
@@ -18,9 +23,10 @@ import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelModifier.AfterBake;
 
 public class ModelSwapper implements AfterBake {
-
 	protected CustomBlockModels customBlockModels = new CustomBlockModels();
 	protected CustomItemModels customItemModels = new CustomItemModels();
+	private Map<Object, NonNullFunction<BakedModel, ? extends BakedModel>> swaps = null;
+	private Map<ResourceLocation, NonNullFunction<BakedModel, ? extends BakedModel>> blockSwaps = null;
 
 	public CustomBlockModels getCustomBlockModels() {
 		return customBlockModels;
@@ -36,7 +42,43 @@ public class ModelSwapper implements AfterBake {
 
 	@Override
 	public BakedModel modifyModelAfterBake(BakedModel model, Context context) {
-		return model;
+		if (swaps == null)
+			collectSwaps();
+
+		Object modelId = context.resourceId();
+		if (modelId == null)
+			modelId = context.topLevelId();
+
+		if (modelId == null)
+			return model;
+
+		NonNullFunction<BakedModel, ? extends BakedModel> swap = swaps.get(modelId);
+		if (swap == null) {
+			ModelResourceLocation topLevelId = context.topLevelId();
+			if (topLevelId != null && !"inventory".equals(topLevelId.variant()))
+				swap = blockSwaps.get(topLevelId.id());
+		}
+
+		if (swap == null)
+			return model;
+
+		try {
+			return swap.apply(model);
+		} catch (ClassCastException ignored) {
+			return model;
+		}
+	}
+
+	private void collectSwaps() {
+		Map<Object, NonNullFunction<BakedModel, ? extends BakedModel>> collectedSwaps = new HashMap<>();
+		Map<ResourceLocation, NonNullFunction<BakedModel, ? extends BakedModel>> collectedBlockSwaps = new HashMap<>();
+		customBlockModels.forEach((block, swapper) ->
+			getAllBlockStateModelLocations(block).forEach(id -> collectedSwaps.put(id, swapper)));
+		customBlockModels.forEach((block, swapper) -> collectedBlockSwaps.put(RegisteredObjectsHelper.getKeyOrThrow(block), swapper));
+		customItemModels.forEach((item, swapper) -> collectedSwaps.put(getItemModelLocation(item), swapper));
+		CustomRenderedItems.forEach(item -> collectedSwaps.put(getItemModelLocation(item), CustomRenderedItemModel::new));
+		swaps = collectedSwaps;
+		blockSwaps = collectedBlockSwaps;
 	}
 
 	public static List<ModelResourceLocation> getAllBlockStateModelLocations(Block block) {
