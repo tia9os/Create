@@ -253,7 +253,10 @@ public final class FluidStack implements DataComponentHolder {
 			current = current.getCompound("Fluid");
 		}
 
-		return normalizeDecoded(parse(registries, current).orElse(EMPTY));
+		RegistryOps<Tag> ops = registries.createSerializationContext(NbtOps.INSTANCE);
+		return normalizeDecoded(OPTIONAL_CODEC.parse(ops, current).resultOrPartial(
+			error -> logger.error("Failed to read invalid fluid: {}", error)
+		).orElse(EMPTY));
 	}
 
 	public static FluidStack of(@Nullable ResourceAmount<FluidVariant> resource) {

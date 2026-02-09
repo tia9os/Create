@@ -2,14 +2,22 @@ package com.simibubi.create.foundation.fluid;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 
 import dev.engine_room.flywheel.lib.transform.TransformStack;
 import net.createmod.catnip.math.AngleHelper;
+import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.render.BasicFluidRenderer;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.Vec3;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -18,6 +26,8 @@ import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 
 import com.simibubi.create.infrastructure.fabric.transfer.fluid.FluidStack;
+import com.simibubi.create.infrastructure.fabric.transfer.TransferUtil;
+import org.jetbrains.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
 public class FluidRenderer extends BasicFluidRenderer {
@@ -29,13 +39,20 @@ public class FluidRenderer extends BasicFluidRenderer {
 
 	public static void renderFluidStream(FluidStack fluidStack, Direction direction, float radius, float progress,
 		boolean inbound, VertexConsumer builder, PoseStack ms, int light) {
-		FluidVariant fluidVariant = fluidStack.getVariant();
-		TextureAtlasSprite[] sprites = FluidVariantRendering.getSprites(fluidVariant);
-		if (sprites == null) {
+		FluidVariant fluidVariant = variantOf(fluidStack.getFluid(), fluidStack.getComponentsPatch());
+		FluidVariant fallbackVariant = TransferUtil.fluidVariantOf(fluidStack.getFluid());
+		TextureAtlasSprite[] sprites = getSpritesSafe(fluidVariant);
+		TextureAtlasSprite[] fallbackSprites = getSpritesSafe(fallbackVariant);
+		TextureAtlasSprite missing = getMissingSprite();
+
+		TextureAtlasSprite fallbackStill = pickSprite(fallbackSprites, 0, null, missing);
+		TextureAtlasSprite stillTexture = pickSprite(sprites, 0, fallbackStill, missing);
+		TextureAtlasSprite fallbackFlow = pickSprite(fallbackSprites, 1, stillTexture, missing);
+		TextureAtlasSprite flowTexture = pickSprite(sprites, 1, fallbackFlow, missing);
+
+		if (stillTexture == null || flowTexture == null) {
 			return;
 		}
-		TextureAtlasSprite flowTexture = sprites[1];
-		TextureAtlasSprite stillTexture = sprites[0];
 
 		int color = FluidVariantRendering.getColor(fluidVariant);
 		int blockLightIn = (light >> 4) & 0xF;
@@ -71,6 +88,120 @@ public class FluidRenderer extends BasicFluidRenderer {
 			renderStillTiledFace(Direction.DOWN, hMin, hMin, hMax, hMax, yMin, builder, ms, light, color, stillTexture);
 
 		ms.popPose();
+	}
+
+	public static void renderFluidBox(Fluid fluid, long amount, float xMin, float yMin, float zMin, float xMax,
+		float yMax, float zMax, MultiBufferSource buffer, PoseStack ms, int light, boolean renderBottom,
+		boolean invertGasses) {
+		renderFluidBox(fluid, amount, xMin, yMin, zMin, xMax, yMax, zMax, getFluidBuilder(buffer), ms, light,
+			renderBottom, invertGasses, DataComponentPatch.EMPTY);
+	}
+
+	public static void renderFluidBox(Fluid fluid, long amount, float xMin, float yMin, float zMin, float xMax,
+		float yMax, float zMax, VertexConsumer builder, PoseStack ms, int light, boolean renderBottom,
+		boolean invertGasses) {
+		renderFluidBox(fluid, amount, xMin, yMin, zMin, xMax, yMax, zMax, builder, ms, light, renderBottom,
+			invertGasses, DataComponentPatch.EMPTY);
+	}
+
+	public static void renderFluidBox(Fluid fluid, long amount, float xMin, float yMin, float zMin, float xMax,
+		float yMax, float zMax, MultiBufferSource buffer, PoseStack ms, int light, boolean renderBottom,
+		boolean invertGasses, @Nullable DataComponentPatch fluidData) {
+		renderFluidBox(fluid, amount, xMin, yMin, zMin, xMax, yMax, zMax, getFluidBuilder(buffer), ms, light,
+			renderBottom, invertGasses, fluidData);
+	}
+
+	public static void renderFluidBox(Fluid fluid, long amount, float xMin, float yMin, float zMin, float xMax,
+		float yMax, float zMax, VertexConsumer builder, PoseStack ms, int light, boolean renderBottom,
+		boolean invertGasses, @Nullable DataComponentPatch fluidData) {
+		FluidVariant fluidVariant = variantOf(fluid, fluidData);
+		FluidVariant fallbackVariant = TransferUtil.fluidVariantOf(fluid);
+		TextureAtlasSprite missing = getMissingSprite();
+		TextureAtlasSprite fluidTexture = getStillSpriteSafe(fluidVariant);
+		if (fluidTexture == null || fluidTexture == missing) {
+			fluidTexture = getStillSpriteSafe(fallbackVariant);
+		}
+		if (fluidTexture == null || fluidTexture == missing) {
+			return;
+		}
+
+		int color = FluidVariantRendering.getColor(fluidVariant);
+		int blockLightIn = (light >> 4) & 0xF;
+		int luminosity = Math.max(blockLightIn, FluidVariantAttributes.getLuminance(fluidVariant));
+		light = (light & 0xF00000) | luminosity << 4;
+
+		Vec3 center = new Vec3(xMin + (xMax - xMin) / 2, yMin + (yMax - yMin) / 2, zMin + (zMax - zMin) / 2);
+		ms.pushPose();
+		if (invertGasses && FluidVariantAttributes.isLighterThanAir(fluidVariant)) {
+			ms.translate(center.x, center.y, center.z);
+			ms.mulPose(Axis.XP.rotationDegrees(180));
+			ms.translate(-center.x, -center.y, -center.z);
+		}
+
+		for (Direction side : Iterate.directions) {
+			if (side == Direction.DOWN && !renderBottom)
+				continue;
+
+			boolean positive = side.getAxisDirection() == Direction.AxisDirection.POSITIVE;
+			if (side.getAxis().isHorizontal()) {
+				if (side.getAxis() == Direction.Axis.X) {
+					renderStillTiledFace(side, zMin, yMin, zMax, yMax, positive ? xMax : xMin,
+						builder, ms, light, color, fluidTexture);
+				} else {
+					renderStillTiledFace(side, xMin, yMin, xMax, yMax, positive ? zMax : zMin,
+						builder, ms, light, color, fluidTexture);
+				}
+			} else {
+				renderStillTiledFace(side, xMin, zMin, xMax, zMax, positive ? yMax : yMin,
+					builder, ms, light, color, fluidTexture);
+			}
+		}
+
+		ms.popPose();
+	}
+
+	private static FluidVariant variantOf(Fluid fluid, @Nullable DataComponentPatch fluidData) {
+		if (fluidData == null || fluidData.isEmpty()) {
+			return TransferUtil.fluidVariantOf(fluid);
+		}
+		return TransferUtil.fluidVariantOf(fluid, fluidData);
+	}
+
+	private static TextureAtlasSprite getMissingSprite() {
+		return Minecraft.getInstance()
+			.getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
+			.apply(MissingTextureAtlasSprite.getLocation());
+	}
+
+	@Nullable
+	private static TextureAtlasSprite[] getSpritesSafe(FluidVariant fluidVariant) {
+		try {
+			return FluidVariantRendering.getSprites(fluidVariant);
+		} catch (RuntimeException ignored) {
+			return null;
+		}
+	}
+
+	@Nullable
+	private static TextureAtlasSprite getStillSpriteSafe(FluidVariant fluidVariant) {
+		try {
+			return FluidVariantRendering.getSprite(fluidVariant);
+		} catch (RuntimeException ignored) {
+			return null;
+		}
+	}
+
+	@Nullable
+	private static TextureAtlasSprite pickSprite(TextureAtlasSprite[] sprites, int index, @Nullable TextureAtlasSprite fallback,
+		TextureAtlasSprite missing) {
+		TextureAtlasSprite selected = sprites != null && index < sprites.length ? sprites[index] : null;
+		if (selected == null || selected == missing) {
+			selected = fallback;
+		}
+		if (selected == missing) {
+			return null;
+		}
+		return selected;
 	}
 
 	public static void renderFlowingTiledFace(Direction dir, float left, float down, float right, float up,
