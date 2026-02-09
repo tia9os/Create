@@ -80,6 +80,7 @@
     "client.PlayerRendererMixin",
     "fabric.ClientTextTooltipAccessor",
     "fabric.GuiAccessor",
+    "fabric.debug.IModelBuilderSimpleEmitMixin",
     "fabric.LivingEntityRendererAccessor",
     "fabric.debug.CompositeModelGetQuadsWarningMixin",
     "fabric.debug.ModelBakeryBakeWarningMixin",
