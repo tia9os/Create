@@ -21,6 +21,8 @@ import net.minecraft.world.level.block.Block;
 
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelModifier.AfterBake;
+import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
+import net.fabricmc.fabric.api.renderer.v1.model.ForwardingBakedModel;
 
 public class ModelSwapper implements AfterBake {
 	protected CustomBlockModels customBlockModels = new CustomBlockModels();
@@ -59,14 +61,19 @@ public class ModelSwapper implements AfterBake {
 				swap = blockSwaps.get(topLevelId.id());
 		}
 
-		if (swap == null)
-			return model;
-
-		try {
-			return swap.apply(model);
-		} catch (ClassCastException ignored) {
-			return model;
+		if (swap != null) {
+			try {
+				model = swap.apply(model);
+			} catch (ClassCastException ignored) {
+				// Keep the original model if the swap expects a more specific type.
+			}
 		}
+
+		ModelResourceLocation topLevelId = context.topLevelId();
+		if (topLevelId != null && "inventory".equals(topLevelId.variant()) && shouldForceVanillaInventoryPath(model))
+			return new InventoryVanillaAdapterModel(model);
+
+		return model;
 	}
 
 	private void collectSwaps() {
@@ -94,6 +101,26 @@ public class ModelSwapper implements AfterBake {
 
 	public static ModelResourceLocation getItemModelLocation(Item item) {
 		return new ModelResourceLocation(RegisteredObjectsHelper.getKeyOrThrow(item), "inventory");
+	}
+
+	private static boolean shouldForceVanillaInventoryPath(BakedModel model) {
+		if (!(model instanceof FabricBakedModel fabricModel))
+			return false;
+		if (fabricModel.isVanillaAdapter())
+			return false;
+		String modelClassName = model.getClass().getName();
+		return modelClassName.startsWith("io.github.fabricators_of_create.porting_lib.models.");
+	}
+
+	private static class InventoryVanillaAdapterModel extends ForwardingBakedModel {
+		private InventoryVanillaAdapterModel(BakedModel wrappedModel) {
+			this.wrapped = wrappedModel;
+		}
+
+		@Override
+		public boolean isVanillaAdapter() {
+			return true;
+		}
 	}
 
 }
