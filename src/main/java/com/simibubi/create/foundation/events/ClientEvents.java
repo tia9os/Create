@@ -3,6 +3,7 @@ package com.simibubi.create.foundation.events;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
+import com.simibubi.create.content.trains.track.TrackBlockItem;
 import com.simibubi.create.content.trains.track.TrackBlockOutline;
 import com.simibubi.create.content.trains.track.TrackPlacement;
 import com.simibubi.create.content.trains.track.TrackTargetingClient;
@@ -17,6 +18,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
 public class ClientEvents {
 
@@ -51,7 +53,11 @@ public class ClientEvents {
 			.popPose();
 	}
 
-	private static boolean onBeforeBlockOutline(WorldRenderContext context, HitResult hitResult) {
+	private static boolean onBlockOutline(WorldRenderContext context, WorldRenderContext.BlockOutlineContext blockOutlineContext) {
+		HitResult hitResult = Minecraft.getInstance().hitResult;
+		if (hitResult == null)
+			return true;
+
 		if (context.matrixStack() == null || context.consumers() == null)
 			return true;
 
@@ -66,6 +72,7 @@ public class ClientEvents {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CreateClient.RAILWAYS.cleanUp());
 		ClientTickEvents.END_CLIENT_TICK.register(ClientEvents::onTick);
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(ClientEvents::onRenderWorld);
-		WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(ClientEvents::onBeforeBlockOutline);
+		WorldRenderEvents.BLOCK_OUTLINE.register(ClientEvents::onBlockOutline);
+		UseBlockCallback.EVENT.register(TrackBlockItem::sendExtenderPacket);
 	}
 }
