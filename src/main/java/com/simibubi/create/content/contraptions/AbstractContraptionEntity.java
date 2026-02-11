@@ -96,6 +96,7 @@ public abstract class AbstractContraptionEntity extends Entity implements IEntit
 	protected boolean initialized;
 	protected boolean prevPosInvalid;
 	private boolean skipActorStop;
+	private int clientSpawnDataGraceTicks = 20;
 
 	/*
 	 * staleTicks are a band-aid to prevent a frame or two of missing blocks between
@@ -373,6 +374,12 @@ public abstract class AbstractContraptionEntity extends Entity implements IEntit
 	@Override
 	public void tick() {
 		if (contraption == null) {
+			// Fabric can deliver complex spawn data shortly after the entity itself.
+			// Wait a few client ticks before discarding to avoid despawning moving contraptions early.
+			if (level().isClientSide && clientSpawnDataGraceTicks-- > 0) {
+				super.tick();
+				return;
+			}
 			discard();
 			return;
 		}

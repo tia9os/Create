@@ -1,5 +1,8 @@
 package com.simibubi.create.content.contraptions.gantry;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.AllEntityTypes;
@@ -35,10 +38,13 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
 public class GantryContraptionEntity extends AbstractContraptionEntity {
+	private static final Map<Integer, GantryContraptionUpdatePacket> PENDING_UPDATES = new HashMap<>();
 
 	Direction movementAxis;
 	double clientOffsetDiff;
 	double axisMotion;
+	private boolean hasPendingCoord;
+	private double pendingCoord;
 
 	public double sequencedOffsetLimit;
 
@@ -65,6 +71,7 @@ public class GantryContraptionEntity extends AbstractContraptionEntity {
 
 		double prevAxisMotion = axisMotion;
 		if (level().isClientSide) {
+			consumePendingUpdate();
 			clientOffsetDiff *= .75f;
 			updateClientMotion();
 		}
@@ -166,6 +173,14 @@ public class GantryContraptionEntity extends AbstractContraptionEntity {
 		sequencedOffsetLimit =
 			compound.contains("SequencedOffsetLimit") ? compound.getDouble("SequencedOffsetLimit") : -1;
 		super.readAdditional(compound, spawnData);
+
+		if (hasPendingCoord && movementAxis != null) {
+			clientOffsetDiff = pendingCoord - getAxisCoord();
+			hasPendingCoord = false;
+		}
+		if (level().isClientSide) {
+			consumePendingUpdate();
+		}
 	}
 
 	@Override
@@ -235,15 +250,34 @@ public class GantryContraptionEntity extends AbstractContraptionEntity {
 	}
 
 	@Environment(EnvType.CLIENT)
-	public static void handlePacket(GantryContraptionUpdatePacket packet) {
-		Entity entity = Minecraft.getInstance().level.getEntity(packet.entityID());
-		if (!(entity instanceof GantryContraptionEntity ce))
+	private void consumePendingUpdate() {
+		GantryContraptionUpdatePacket pending = PENDING_UPDATES.remove(getId());
+		if (pending != null)
+			applyPacket(pending);
+	}
+
+	@Environment(EnvType.CLIENT)
+	private void applyPacket(GantryContraptionUpdatePacket packet) {
+		axisMotion = packet.motion();
+		sequencedOffsetLimit = packet.sequenceLimit();
+		if (movementAxis == null) {
+			pendingCoord = packet.coord();
+			hasPendingCoord = true;
 			return;
-		if (ce.movementAxis == null)
-			return; // fabric: packet ordering makes this null for a short period
-		ce.axisMotion = packet.motion();
-		ce.clientOffsetDiff = packet.coord() - ce.getAxisCoord();
-		ce.sequencedOffsetLimit = packet.sequenceLimit();
+		}
+		clientOffsetDiff = packet.coord() - getAxisCoord();
+	}
+
+	@Environment(EnvType.CLIENT)
+	public static void handlePacket(GantryContraptionUpdatePacket packet) {
+		if (Minecraft.getInstance().level == null)
+			return;
+		Entity entity = Minecraft.getInstance().level.getEntity(packet.entityID());
+		if (!(entity instanceof GantryContraptionEntity ce)) {
+			PENDING_UPDATES.put(packet.entityID(), packet);
+			return;
+		}
+		ce.applyPacket(packet);
 	}
 
 }

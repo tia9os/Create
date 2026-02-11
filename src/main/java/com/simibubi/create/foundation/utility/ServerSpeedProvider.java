@@ -17,7 +17,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 
 public class ServerSpeedProvider {
-	private static final LerpedFloat modifier = LerpedFloat.linear();
+	private static final LerpedFloat modifier = LerpedFloat.linear().startWithValue(1);
 
 	private static int clientTimer = 0;
 	private static int serverTimer = 0;

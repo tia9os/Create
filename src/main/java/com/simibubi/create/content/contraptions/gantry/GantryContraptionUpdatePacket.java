@@ -4,6 +4,7 @@ import com.simibubi.create.AllPackets;
 import net.createmod.catnip.net.base.ClientboundPacketPayload;
 
 import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -22,7 +23,12 @@ public record GantryContraptionUpdatePacket(int entityID, double coord, double m
 	@Override
 	@Environment(EnvType.CLIENT)
 	public void handle(LocalPlayer player) {
-		GantryContraptionEntity.handlePacket(this);
+		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft.isSameThread()) {
+			GantryContraptionEntity.handlePacket(this);
+			return;
+		}
+		minecraft.execute(() -> GantryContraptionEntity.handlePacket(this));
 	}
 
 	@Override

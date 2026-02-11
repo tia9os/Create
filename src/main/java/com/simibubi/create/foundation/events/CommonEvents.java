@@ -3,6 +3,7 @@ package com.simibubi.create.foundation.events;
 import com.simibubi.create.Create;
 import com.simibubi.create.content.equipment.zapper.ZapperInteractionHandler;
 import com.simibubi.create.content.equipment.zapper.ZapperItem;
+import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -16,6 +17,7 @@ public class CommonEvents {
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			Create.SCHEMATIC_RECEIVER.tick();
 			Create.LAGGER.tick();
+			ServerSpeedProvider.serverTick(server);
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> Create.SCHEMATIC_RECEIVER.shutdown());
 	}
