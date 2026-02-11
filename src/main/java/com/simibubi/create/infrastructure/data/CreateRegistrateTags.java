@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.simibubi.create.AllItems;
+import com.simibubi.create.AllTags;
 import com.simibubi.create.AllTags.AllBlockTags;
 import com.simibubi.create.AllTags.AllEntityTags;
 import com.simibubi.create.AllTags.AllFluidTags;
@@ -202,6 +203,12 @@ public class CreateRegistrateTags {
 
 		prov.tag(Tags.Items.INGOTS)
 			.addTag(AllItemTags.CREATE_INGOTS.tag);
+
+		// Bridge legacy c:<metal>_ingots tags to the modern c:ingots/<metal> tags used in recipes.
+		prov.tag(AllTags.commonItemTag("ingots/brass"))
+			.addTag(AllTags.commonItemTag("brass_ingots"));
+		prov.tag(AllTags.commonItemTag("ingots/zinc"))
+			.addTag(AllTags.commonItemTag("zinc_ingots"));
 
 		prov.tag(AllItemTags.OBSIDIAN_DUST.tag).add(AllItems.POWDERED_OBSIDIAN.get());
 
