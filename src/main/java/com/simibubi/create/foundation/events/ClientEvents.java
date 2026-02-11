@@ -1,16 +1,57 @@
 package com.simibubi.create.foundation.events;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.trains.track.TrackBlockOutline;
 import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 
+import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer;
+import net.createmod.catnip.render.SuperRenderTypeBuffer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.Vec3;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import io.github.fabricators_of_create.porting_lib.event.client.DrawSelectionEvents;
 
 public class ClientEvents {
+
+	private static void onTick(Minecraft client) {
+		if (client.level == null || client.player == null)
+			return;
+
+		CreateClient.GLUE_HANDLER.tick();
+		ServerSpeedProvider.clientTick();
+	}
+
+	private static void onRenderWorld(WorldRenderContext event) {
+		if (event.matrixStack() == null)
+			return;
+
+		SuperRenderTypeBuffer buffer = DefaultSuperRenderTypeBuffer.getInstance();
+		Vec3 camera = Minecraft.getInstance()
+			.gameRenderer
+			.getMainCamera()
+			.getPosition();
+
+		event.matrixStack()
+			.pushPose();
+		TrackBlockOutline.drawCurveSelection(event.matrixStack(), buffer, camera);
+		buffer.draw();
+		RenderSystem.enableCull();
+		event.matrixStack()
+			.popPose();
+	}
 
 	public static void register() {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> CreateClient.checkGraphicsFanciness());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CreateClient.RAILWAYS.cleanUp());
-		ClientTickEvents.END_CLIENT_TICK.register(client -> ServerSpeedProvider.clientTick());
+		ClientTickEvents.END_CLIENT_TICK.register(ClientEvents::onTick);
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(ClientEvents::onRenderWorld);
+		DrawSelectionEvents.BLOCK.register((context, info, target, deltaTracker, matrix, buffers) ->
+			TrackBlockOutline.drawCustomBlockSelection(context, info, target,
+				deltaTracker.getGameTimeDeltaPartialTick(false), matrix, buffers));
 	}
 }
