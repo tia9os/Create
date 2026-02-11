@@ -11,13 +11,12 @@ import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer;
 import net.createmod.catnip.render.SuperRenderTypeBuffer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-
-import io.github.fabricators_of_create.porting_lib.event.client.DrawSelectionEvents;
 
 public class ClientEvents {
 
@@ -52,13 +51,21 @@ public class ClientEvents {
 			.popPose();
 	}
 
+	private static boolean onBeforeBlockOutline(WorldRenderContext context, HitResult hitResult) {
+		if (context.matrixStack() == null || context.consumers() == null)
+			return true;
+
+		float partialTicks = context.tickCounter()
+			.getGameTimeDeltaPartialTick(false);
+		return !TrackBlockOutline.drawCustomBlockSelection(context.worldRenderer(), context.camera(), hitResult,
+			partialTicks, context.matrixStack(), context.consumers());
+	}
+
 	public static void register() {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> CreateClient.checkGraphicsFanciness());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CreateClient.RAILWAYS.cleanUp());
 		ClientTickEvents.END_CLIENT_TICK.register(ClientEvents::onTick);
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(ClientEvents::onRenderWorld);
-		DrawSelectionEvents.BLOCK.register((context, info, target, deltaTracker, matrix, buffers) ->
-			TrackBlockOutline.drawCustomBlockSelection(context, info, target,
-				deltaTracker.getGameTimeDeltaPartialTick(false), matrix, buffers));
+		WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(ClientEvents::onBeforeBlockOutline);
 	}
 }
