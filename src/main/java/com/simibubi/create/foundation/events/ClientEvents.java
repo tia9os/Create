@@ -2,7 +2,10 @@ package com.simibubi.create.foundation.events;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
 import com.simibubi.create.content.trains.track.TrackBlockOutline;
+import com.simibubi.create.content.trains.track.TrackPlacement;
+import com.simibubi.create.content.trains.track.TrackTargetingClient;
 import com.simibubi.create.foundation.utility.ServerSpeedProvider;
 
 import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer;
@@ -24,6 +27,9 @@ public class ClientEvents {
 
 		CreateClient.GLUE_HANDLER.tick();
 		ServerSpeedProvider.clientTick();
+		TrackTargetingClient.clientTick();
+		TrackPlacement.clientTick();
+		CurvedTrackInteraction.clientTick();
 	}
 
 	private static void onRenderWorld(WorldRenderContext event) {
@@ -39,6 +45,7 @@ public class ClientEvents {
 		event.matrixStack()
 			.pushPose();
 		TrackBlockOutline.drawCurveSelection(event.matrixStack(), buffer, camera);
+		TrackTargetingClient.render(event.matrixStack(), buffer, camera);
 		buffer.draw();
 		RenderSystem.enableCull();
 		event.matrixStack()
