@@ -2,6 +2,8 @@ package com.simibubi.create.content.contraptions;
 
 import java.lang.ref.WeakReference;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -84,23 +86,28 @@ public class ContraptionHandlerClient {
 		Couple<Vec3> rayInputs = getRayInputs(player);
 		Vec3 origin = rayInputs.getFirst();
 		Vec3 target = rayInputs.getSecond();
-		AABB aabb = new AABB(origin, target).inflate(16);
+			AABB aabb = new AABB(origin, target).inflate(16);
 
-		Collection<WeakReference<AbstractContraptionEntity>> contraptions =
-			ContraptionHandler.loadedContraptions.get(mc.level)
-				.values();
+			Collection<WeakReference<AbstractContraptionEntity>> contraptions =
+				ContraptionHandler.loadedContraptions.get(mc.level)
+					.values();
+			Set<AbstractContraptionEntity> candidates = new HashSet<>();
+			for (WeakReference<AbstractContraptionEntity> ref : contraptions) {
+				AbstractContraptionEntity contraptionEntity = ref.get();
+				if (contraptionEntity != null)
+					candidates.add(contraptionEntity);
+			}
+			// Fallback for cases where the contraption cache missed spawn events.
+			candidates.addAll(mc.level.getEntitiesOfClass(AbstractContraptionEntity.class, aabb));
 
-		double bestDistance = Double.MAX_VALUE;
-		BlockHitResult bestResult = null;
-		AbstractContraptionEntity bestEntity = null;
+			double bestDistance = Double.MAX_VALUE;
+			BlockHitResult bestResult = null;
+			AbstractContraptionEntity bestEntity = null;
 
-		for (WeakReference<AbstractContraptionEntity> ref : contraptions) {
-			AbstractContraptionEntity contraptionEntity = ref.get();
-			if (contraptionEntity == null)
-				continue;
-			if (!contraptionEntity.getBoundingBox()
-				.intersects(aabb))
-				continue;
+			for (AbstractContraptionEntity contraptionEntity : candidates) {
+				if (!contraptionEntity.getBoundingBox()
+					.intersects(aabb))
+					continue;
 
 			BlockHitResult rayTraceResult = rayTraceContraption(origin, target, contraptionEntity);
 			if (rayTraceResult == null)

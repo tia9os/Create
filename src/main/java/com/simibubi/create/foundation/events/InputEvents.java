@@ -1,6 +1,7 @@
 package com.simibubi.create.foundation.events;
 
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.contraptions.ContraptionHandlerClient;
 import com.simibubi.create.content.contraptions.elevator.ElevatorControlsHandler;
 import com.simibubi.create.content.contraptions.wrench.RadialWrenchHandler;
 import com.simibubi.create.content.equipment.toolbox.ToolboxHandlerClient;
@@ -70,6 +71,10 @@ public class InputEvents {
 	public static InteractionResult onUse(Minecraft mc, HitResult hit, InteractionHand hand) {
 		if (mc.screen != null)
 			return InteractionResult.PASS;
+
+		InteractionResult contraptionUse = ContraptionHandlerClient.rightClickingOnContraptionsGetsHandledLocally(mc, hit, hand);
+		if (contraptionUse != InteractionResult.PASS)
+			return InteractionResult.SUCCESS;
 
 		if (CurvedTrackInteraction.onClickInput(true, false)) {
 			return InteractionResult.SUCCESS;

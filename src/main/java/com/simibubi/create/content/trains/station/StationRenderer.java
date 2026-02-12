@@ -51,7 +51,7 @@ public class StationRenderer extends SafeBlockEntityRenderer<StationBlockEntity>
 		boolean isAssembling = be.getBlockState()
 			.getValue(StationBlock.ASSEMBLING);
 
-		if (!isAssembling || (station == null || station.getPresentTrain() != null) && !be.isVirtual()) {
+		if (!isAssembling || (station != null && station.getPresentTrain() != null) && !be.isVirtual()) {
 			renderFlag(
 				be.flag.getValue(partialTicks) > 0.75f ? AllPartialModels.STATION_ON : AllPartialModels.STATION_OFF, be,
 				partialTicks, ms, buffer, light, overlay);

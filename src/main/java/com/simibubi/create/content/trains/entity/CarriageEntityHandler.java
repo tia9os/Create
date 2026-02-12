@@ -36,7 +36,7 @@ public class CarriageEntityHandler {
 
 	public static boolean isActiveChunk(Level level, BlockPos pos) {
 		if (level instanceof ServerLevel serverLevel)
-			return serverLevel.isPositionEntityTicking(pos);
+			return serverLevel.isPositionEntityTicking(pos) || serverLevel.isLoaded(pos);
 		return false;
 	}
 

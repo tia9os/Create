@@ -82,16 +82,17 @@ public class StationEditPacket extends BlockEntityConfigurationPacket<StationBlo
 		Boolean isAssemblyMode = blockState.getValue(StationBlock.ASSEMBLING);
 		boolean assemblyComplete = false;
 
-		if (tryAssemble != null) {
-			if (!isAssemblyMode)
-				return;
-			if (tryAssemble) {
-				be.assemble(player.getUUID());
-				assemblyComplete = station != null && station.getPresentTrain() != null;
-			} else {
-				if (be.tryDisassembleTrain(player) && be.tryEnterAssemblyMode())
-					be.refreshAssemblyInfo();
-			}
+			if (tryAssemble != null) {
+				if (!isAssemblyMode)
+					return;
+				if (tryAssemble) {
+					be.assemble(player.getUUID());
+					GlobalStation assembledAt = be.getStation();
+					assemblyComplete = assembledAt != null && assembledAt.getPresentTrain() != null;
+				} else {
+					if (be.tryDisassembleTrain(player) && be.tryEnterAssemblyMode())
+						be.refreshAssemblyInfo();
+				}
 			if (!assemblyComplete)
 				return;
 		}

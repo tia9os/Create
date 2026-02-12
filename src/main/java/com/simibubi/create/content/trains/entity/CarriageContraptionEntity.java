@@ -248,6 +248,14 @@ public class CarriageContraptionEntity extends OrientedContraptionEntity {
 		}
 
 		if (!Create.RAILWAYS.sided(level()).trains.containsKey(carriage.train.id)) {
+			if (level().isClientSide) {
+				// AddTrainPacket can arrive after the entity spawn packet; wait and rebind instead of discarding instantly.
+				if (tickCount < 200) {
+					carriage = null;
+					validForRender = false;
+					return;
+				}
+			}
 			discard();
 			return;
 		}
@@ -291,8 +299,12 @@ public class CarriageContraptionEntity extends OrientedContraptionEntity {
 		if (tickCount % 10 == 0)
 			updateTrackGraph();
 
-		if (!dce.pointsInitialised)
-			return;
+		if (!dce.pointsInitialised) {
+			// Apply cached spawn/update sync as soon as a carriage binds, even if packets arrived out of order.
+			carriageData.apply(this, carriage);
+			if (!dce.pointsInitialised)
+				return;
+		}
 
 		carriageData.approach(this, carriage, 1f / getType().updateInterval());
 
@@ -352,6 +364,8 @@ public class CarriageContraptionEntity extends OrientedContraptionEntity {
 			dimensional.updateRenderedCutoff();
 		}
 		updateTrackGraph();
+		if (carriage != null)
+			carriageData.apply(this, carriage);
 	}
 
 	private void tickArrivalSound(CarriageContraption cc) {

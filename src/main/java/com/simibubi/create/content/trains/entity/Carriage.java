@@ -22,6 +22,8 @@ import net.fabricmc.api.Environment;
 
 import org.apache.commons.lang3.mutable.MutableDouble;
 
+import com.simibubi.create.Create;
+import com.simibubi.create.AllEntityTypes;
 import com.simibubi.create.content.contraptions.Contraption;
 import com.simibubi.create.content.contraptions.minecart.TrainCargoManager;
 import com.simibubi.create.content.trains.entity.TravellingPoint.IEdgePointListener;
@@ -56,6 +58,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -136,6 +139,17 @@ public class Carriage {
 
 		DimensionalCarriageEntity dimensional = getDimensional(level);
 		dimensional.alignEntity(entity);
+		if (dimensional.positionAnchor == null && contraption.anchor != null) {
+			Vec3 leadingAnchor = leadingBogey().getAnchorPosition();
+			Vec3 trailingAnchor = trailingBogey().getAnchorPosition();
+			Vec3 fallbackAnchor = leadingAnchor != null ? leadingAnchor
+				: trailingAnchor != null ? trailingAnchor
+				: Vec3.atCenterOf(contraption.anchor);
+			dimensional.positionAnchor = fallbackAnchor;
+			if (leadingAnchor != null && trailingAnchor != null)
+				dimensional.rotationAnchors = Couple.create(leadingAnchor, trailingAnchor);
+			entity.setPos(fallbackAnchor);
+		}
 		dimensional.removeAndSaveEntity(entity, true);
 	}
 
@@ -295,12 +309,29 @@ public class Carriage {
 			CarriageContraptionEntity entity = dimensionalCarriageEntity.entity.get();
 
 			if (entity == null) {
-				if (discard)
+				if (discard) {
 					iterator.remove();
-				else if (dimensionalCarriageEntity.positionAnchor != null && CarriageEntityHandler
-					.isActiveChunk(currentLevel, BlockPos.containing(dimensionalCarriageEntity.positionAnchor)))
-					dimensionalCarriageEntity.createEntity(currentLevel, anyAvailableEntity() == null);
+				} else {
+					if (dimensionalCarriageEntity.positionAnchor == null)
+						updateContraptionAnchors();
+					if (dimensionalCarriageEntity.positionAnchor == null && serialisedEntity.contains("Pos", Tag.TAG_LIST))
+						dimensionalCarriageEntity.positionAnchor = VecHelper.readNBT(serialisedEntity.getList("Pos", Tag.TAG_DOUBLE));
+					if (dimensionalCarriageEntity.positionAnchor == null)
+						dimensionalCarriageEntity.positionAnchor = leadingBogey().getAnchorPosition();
 
+					if (dimensionalCarriageEntity.positionAnchor == null) {
+						if (!dimensionalCarriageEntity.warnedMissingAnchor) {
+							Create.LOGGER.warn(
+								"Skipping carriage entity recreate: missing position anchor for train={}, carriage={}, dimension={}",
+								train.id, id, entry.getKey().location());
+							dimensionalCarriageEntity.warnedMissingAnchor = true;
+						}
+					} else if (CarriageEntityHandler
+						.isActiveChunk(currentLevel, BlockPos.containing(dimensionalCarriageEntity.positionAnchor))) {
+						dimensionalCarriageEntity.warnedMissingAnchor = false;
+						dimensionalCarriageEntity.createEntity(currentLevel, anyAvailableEntity() == null);
+					}
+				}
 			} else {
 				if (discard) {
 					discard = dimensionalCarriageEntity.discardTicks > 3;
@@ -314,8 +345,8 @@ public class Carriage {
 					if (discard)
 						iterator.remove();
 					continue;
+					}
 				}
-			}
 
 			entity = dimensionalCarriageEntity.entity.get();
 			if (entity != null && dimensionalCarriageEntity.positionAnchor != null) {
@@ -554,6 +585,7 @@ public class Carriage {
 
 		public TrackNodeLocation pivot;
 		int discardTicks;
+		boolean warnedMissingAnchor;
 
 		// 0 == whole, 0..1 = fading out, -1..0 = fading in
 		public float cutoff;
@@ -565,6 +597,7 @@ public class Carriage {
 			this.entity = new WeakReference<>(null);
 			this.rotationAnchors = Couple.create(null, null);
 			this.pointsInitialised = false;
+			this.warnedMissingAnchor = false;
 		}
 
 		public void discardPivot() {
@@ -834,13 +867,40 @@ public class Carriage {
 		private void createEntity(Level level, boolean loadPassengers) {
 			if (positionAnchor != null)
 				serialisedEntity.put("Pos", VecHelper.writeNBT(positionAnchor));
-			Entity entity = EntityType.create(serialisedEntity, level)
+
+			CompoundTag entityData = serialisedEntity.copy();
+			if (!entityData.contains("id", Tag.TAG_STRING))
+				entityData.putString("id", BuiltInRegistries.ENTITY_TYPE.getKey(AllEntityTypes.CARRIAGE_CONTRAPTION.get())
+					.toString());
+
+			Entity entity = EntityType.create(entityData, level)
 				.orElse(null);
+			if (entityData.contains("Contraption", Tag.TAG_COMPOUND) && (!(entity instanceof CarriageContraptionEntity cce)
+				|| !(cce.getContraption() instanceof CarriageContraption))) {
+				Contraption loadedContraption = Contraption.fromNBT(level, entityData.getCompound("Contraption"), false);
+				if (loadedContraption instanceof CarriageContraption cc)
+					entity = CarriageContraptionEntity.create(level, cc);
+			}
 
 			if (!(entity instanceof CarriageContraptionEntity cce)) {
-				train.invalid = true;
+				Create.LOGGER.warn("Failed to recreate carriage entity for train={}, carriage={}. Keys={}, EntityTag={}",
+					train.id, id,
+					entityData.getAllKeys(), entityData);
+				serialisedEntity = entityData;
 				return;
 			}
+			if (positionAnchor == null && serialisedEntity.contains("Pos", Tag.TAG_LIST))
+				positionAnchor = VecHelper.readNBT(serialisedEntity.getList("Pos", Tag.TAG_DOUBLE));
+			if (positionAnchor == null)
+				positionAnchor = leadingBogey().getAnchorPosition();
+			if (positionAnchor == null) {
+				Create.LOGGER.warn("Failed to recreate carriage entity: missing position anchor for train={}, carriage={}",
+					train.id, id);
+				return;
+			}
+			if (isOnTwoBogeys() && rotationAnchors.both(Objects::nonNull)
+				&& rotationAnchors.getFirst().distanceToSqr(rotationAnchors.getSecond()) < 1.0E-4 && bogeySpacing > 0)
+				rotationAnchors = Couple.create(null, null);
 
 			entity.moveTo(positionAnchor);
 			this.entity = new WeakReference<>(cce);

@@ -43,6 +43,7 @@ import com.simibubi.create.content.trains.graph.DiscoveredPath;
 import com.simibubi.create.content.trains.graph.EdgePointType;
 import com.simibubi.create.content.trains.graph.TrackEdge;
 import com.simibubi.create.content.trains.graph.TrackGraph;
+import com.simibubi.create.content.trains.graph.TrackGraphHelper;
 import com.simibubi.create.content.trains.graph.TrackGraphLocation;
 import com.simibubi.create.content.trains.graph.TrackNode;
 import com.simibubi.create.content.trains.graph.TrackNodeLocation;
@@ -51,6 +52,7 @@ import com.simibubi.create.content.trains.schedule.Schedule;
 import com.simibubi.create.content.trains.schedule.ScheduleItem;
 import com.simibubi.create.content.trains.station.GlobalStation.GlobalPackagePort;
 import com.simibubi.create.content.trains.track.ITrackBlock;
+import com.simibubi.create.content.trains.track.TrackPropagator;
 import com.simibubi.create.content.trains.track.TrackTargetingBehaviour;
 import com.simibubi.create.foundation.advancement.AllAdvancements;
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock;
@@ -529,11 +531,10 @@ public class StationBlockEntity extends SmartBlockEntity implements Transformabl
 
 		if (!isVirtual()) {
 			GlobalStation station = getStation();
-			if (station == null || station.getPresentTrain() != null)
+			if (station != null && station.getPresentTrain() != null)
 				return;
 		}
 
-		int prevLength = assemblyLength;
 		BlockPos targetPosition = edgePoint.getGlobalPosition();
 		BlockState trackState = edgePoint.getTrackBlockState();
 		ITrackBlock track = edgePoint.getTrack();
@@ -593,11 +594,7 @@ public class StationBlockEntity extends SmartBlockEntity implements Transformabl
 
 		bogeyCount = bogeyIndex;
 
-		if (level.isClientSide)
-			return;
-		if (prevLength == assemblyLength)
-			return;
-		if (isVirtual())
+		if (level.isClientSide || isVirtual())
 			return;
 
 		Map<BlockPos, BoundingBox> map = assemblyAreas.get(level);
@@ -762,8 +759,24 @@ public class StationBlockEntity extends SmartBlockEntity implements Transformabl
 		}
 
 		if (points.size() != pointOffsets.size()) {
-			Create.LOGGER.warn("Cannot assemble: Not all Points created");
-			return;
+			Vec3 upNormal = track.getUpNormal(level, trackPosition, trackState)
+				.normalize();
+			List<TravellingPoint> fallbackPoints = continuePointsFromExisting(graph, points, pointOffsets, upNormal);
+
+			if (fallbackPoints == null || fallbackPoints.size() != pointOffsets.size()) {
+				TrackGraphLocation graphLocation = resolveAssemblyGraphLocation(track, trackPosition, trackState);
+				fallbackPoints =
+					createPointsFromGraphLocation(graphLocation, track, trackPosition, trackState, directionVec, pointOffsets);
+				if (fallbackPoints != null && fallbackPoints.size() == pointOffsets.size())
+					graph = graphLocation.graph;
+			}
+
+			if (fallbackPoints == null || fallbackPoints.size() != pointOffsets.size()) {
+				Create.LOGGER.warn("Cannot assemble: Not all Points created");
+				return;
+			}
+
+			points = fallbackPoints;
 		}
 
 		if (points.size() == 0) {
@@ -868,6 +881,9 @@ public class StationBlockEntity extends SmartBlockEntity implements Transformabl
 		}
 
 		GlobalStation station = getStation();
+		if (station == null)
+			ensureStationEdgePointPresent();
+		station = getStation();
 		if (station != null) {
 			train.setCurrentStation(station);
 			station.reserveFor(train);
@@ -875,12 +891,194 @@ public class StationBlockEntity extends SmartBlockEntity implements Transformabl
 
 		train.collectInitiallyOccupiedSignalBlocks();
 		Create.RAILWAYS.addTrain(train);
+		for (Carriage carriage : carriages)
+			carriage.manageEntities(level);
 		CatnipServices.NETWORK.sendToAllClients(new AddTrainPacket(train));
 		clearException();
 
 		award(AllAdvancements.TRAIN);
 		if (contraptions.size() >= 6)
 			award(AllAdvancements.LONG_TRAIN);
+	}
+
+	@Nullable
+	private List<TravellingPoint> createPointsFromGraphLocation(@Nullable TrackGraphLocation graphLocation, ITrackBlock track,
+		BlockPos trackPosition, BlockState trackState, Vec3 directionVec, List<Double> pointOffsets) {
+		if (graphLocation == null)
+			return null;
+
+		TrackGraph graph = graphLocation.graph;
+		TrackNode firstNode = graph.locateNode(graphLocation.edge.getFirst());
+		TrackNode secondNode = graph.locateNode(graphLocation.edge.getSecond());
+		if (firstNode == null || secondNode == null)
+			return null;
+
+		Vec3 upNormal = track.getUpNormal(level, trackPosition, trackState)
+			.normalize();
+		double firstOffset = pointOffsets.isEmpty() ? 0 : pointOffsets.get(0);
+		double baseShift = -firstOffset;
+		double[] offsetShifts = { baseShift, baseShift + .5d, baseShift - .5d, .5d, 0d, 1d, -1d };
+		List<TravellingPoint> bestResult = null;
+		double bestDirectionDot = -Double.MAX_VALUE;
+
+		for (boolean reversed : Iterate.falseAndTrue) {
+			TrackNode node1 = reversed ? secondNode : firstNode;
+			TrackNode node2 = reversed ? firstNode : secondNode;
+			TrackEdge edge = graph.getConnectionsFrom(node1)
+				.get(node2);
+			if (edge == null)
+				continue;
+
+			double position = reversed ? edge.getLength() - graphLocation.position : graphLocation.position;
+			double directionDot = edge.getDirectionAt(position)
+				.normalize()
+				.dot(directionVec);
+
+			for (double offsetShift : offsetShifts) {
+				List<TravellingPoint> points =
+					createPointsIncrementally(graph, node1, node2, edge, position, pointOffsets, offsetShift, upNormal);
+				if (points == null)
+					continue;
+
+				if (directionDot > bestDirectionDot) {
+					bestDirectionDot = directionDot;
+					bestResult = points;
+				}
+
+				if (directionDot > 0)
+					return points;
+			}
+		}
+
+		return bestResult;
+	}
+
+	@Nullable
+	private List<TravellingPoint> createPointsIncrementally(TrackGraph graph, TrackNode node1, TrackNode node2, TrackEdge edge,
+		double startPosition, List<Double> pointOffsets, double offsetShift, Vec3 upNormal) {
+		List<TravellingPoint> points = new ArrayList<>(pointOffsets.size());
+		double previousDistance = 0;
+		TravellingPoint previous = null;
+
+		for (double pointOffset : pointOffsets) {
+			double distanceFromStart = pointOffset + offsetShift;
+			double delta = previous == null ? distanceFromStart : distanceFromStart - previousDistance;
+			TravellingPoint point = previous == null
+				? new TravellingPoint(node1, node2, edge, startPosition, false)
+				: new TravellingPoint(previous.node1, previous.node2, previous.edge, previous.position, previous.upsideDown);
+			if (!Mth.equal(delta, 0))
+				point.travel(graph, delta, point.steer(TravellingPoint.SteerDirection.NONE, upNormal));
+			if (point.blocked || point.edge == null)
+				return null;
+			points.add(point);
+			previous = point;
+			previousDistance = distanceFromStart;
+		}
+
+		return points;
+	}
+
+	@Nullable
+	private List<TravellingPoint> continuePointsFromExisting(@Nullable TrackGraph graph, List<TravellingPoint> existingPoints,
+		List<Double> pointOffsets, Vec3 upNormal) {
+		if (graph == null || existingPoints.isEmpty())
+			return null;
+
+		List<TravellingPoint> points = new ArrayList<>(existingPoints);
+		for (int pointIndex = points.size(); pointIndex < pointOffsets.size(); pointIndex++) {
+			double delta = pointOffsets.get(pointIndex) - pointOffsets.get(pointIndex - 1);
+			TravellingPoint previous = points.get(pointIndex - 1);
+			if (previous.edge == null)
+				return null;
+
+			TravellingPoint point =
+				new TravellingPoint(previous.node1, previous.node2, previous.edge, previous.position, previous.upsideDown);
+			if (!Mth.equal(delta, 0))
+				point.travel(graph, delta, point.steer(TravellingPoint.SteerDirection.NONE, upNormal));
+			if (point.blocked || point.edge == null)
+				return null;
+			points.add(point);
+		}
+
+		return points;
+	}
+
+	@Nullable
+	private TrackGraphLocation resolveAssemblyGraphLocation(ITrackBlock track, BlockPos trackPosition, BlockState trackState) {
+		TrackGraphLocation resolved = resolveAssemblyGraphLocationFromTrack(track, trackPosition, trackState);
+		if (resolved != null)
+			return resolved;
+
+		// Recover stale/missing graph data that can occur after world upgrades or desync.
+		TrackPropagator.onRailAdded(level, trackPosition, trackState);
+		ensureStationEdgePointPresent();
+		return resolveAssemblyGraphLocationFromTrack(track, trackPosition, trackState);
+	}
+
+	@Nullable
+	private TrackGraphLocation resolveAssemblyGraphLocationFromTrack(ITrackBlock track, BlockPos trackPosition,
+		BlockState trackState) {
+		TrackGraphLocation fromEdgePoint = edgePoint.determineGraphLocation();
+		if (fromEdgePoint != null)
+			return fromEdgePoint;
+
+		TrackGraphLocation fromStationPoint = resolveAssemblyGraphLocationFromStationPoint();
+		if (fromStationPoint != null)
+			return fromStationPoint;
+
+		List<Vec3> trackAxes = track.getTrackAxes(level, trackPosition, trackState);
+		AxisDirection preferredDirection = edgePoint.getTargetDirection();
+		for (Vec3 axis : trackAxes) {
+			TrackGraphLocation withPreferredDirection =
+				TrackGraphHelper.getGraphLocationAt(level, trackPosition, preferredDirection, axis);
+			if (withPreferredDirection != null)
+				return withPreferredDirection;
+
+			TrackGraphLocation withOppositeDirection =
+				TrackGraphHelper.getGraphLocationAt(level, trackPosition, preferredDirection.opposite(), axis);
+			if (withOppositeDirection != null)
+				return withOppositeDirection;
+		}
+
+		return null;
+	}
+
+	@Nullable
+	private TrackGraphLocation resolveAssemblyGraphLocationFromStationPoint() {
+		GlobalStation station = getStation();
+		if (station == null || station.edgeLocation == null)
+			return null;
+
+		for (TrackGraph graph : Create.RAILWAYS.trackNetworks.values()) {
+			if (graph.getPoint(EdgePointType.STATION, station.getId()) == null)
+				continue;
+
+			TrackNode firstNode = graph.locateNode(station.edgeLocation.getFirst());
+			TrackNode secondNode = graph.locateNode(station.edgeLocation.getSecond());
+			if (firstNode == null || secondNode == null)
+				continue;
+
+			TrackEdge edge = graph.getConnectionsFrom(firstNode)
+				.get(secondNode);
+			if (edge == null)
+				continue;
+
+			TrackGraphLocation graphLocation = new TrackGraphLocation();
+			graphLocation.graph = graph;
+			graphLocation.edge = station.edgeLocation;
+			graphLocation.position = station.position;
+			return graphLocation;
+		}
+
+		return null;
+	}
+
+	private void ensureStationEdgePointPresent() {
+		if (level.isClientSide || getStation() != null)
+			return;
+
+		edgePoint.invalidateEdgePoint(null);
+		edgePoint.tick();
 	}
 
 	public void cancelAssembly() {
