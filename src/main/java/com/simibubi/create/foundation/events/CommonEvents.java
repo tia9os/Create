@@ -10,7 +10,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 public class CommonEvents {
 
@@ -20,8 +22,16 @@ public class CommonEvents {
 			Create.LAGGER.tick();
 			ServerSpeedProvider.serverTick(server);
 			server.getAllLevels()
-				.forEach(ControlsServerHandler::tick);
+				.forEach(level -> {
+					Create.RAILWAYS.sided(level)
+						.tick(level);
+					ControlsServerHandler.tick(level);
+				});
 		});
+		ServerWorldEvents.LOAD.register((server, world) -> Create.RAILWAYS.levelLoaded(world));
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> Create.RAILWAYS.playerLogin(handler.player));
+		ServerPlayConnectionEvents.DISCONNECT
+			.register((handler, server) -> Create.RAILWAYS.playerLogout(handler.player));
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> Create.SCHEMATIC_RECEIVER.shutdown());
 	}
 
