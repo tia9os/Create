@@ -130,8 +130,10 @@ public class ContraptionHandlerClient {
 
 		if (bestEntity.handlePlayerInteraction(player, pos, face, hand)) {
 			CatnipServices.NETWORK.sendToServer(new ContraptionInteractionPacket(bestEntity, hand, pos, face));
-		} else
-			handleSpecialInteractions(bestEntity, player, pos, face, hand);
+		} else if (!handleSpecialInteractions(bestEntity, player, pos, face, hand)) {
+			// Client can be out of sync while the train entity is binding; let server authority decide interaction validity.
+			CatnipServices.NETWORK.sendToServer(new ContraptionInteractionPacket(bestEntity, hand, pos, face));
+		}
 
 		return InteractionResult.FAIL;
 	}

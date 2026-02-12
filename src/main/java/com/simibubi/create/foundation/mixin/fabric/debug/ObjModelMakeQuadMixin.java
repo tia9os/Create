@@ -7,8 +7,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import com.simibubi.create.foundation.render.fabric.ObjModelMeshBuilderScope;
 
 import io.github.fabricators_of_create.porting_lib.models.obj.ObjModel;
+import net.fabricmc.fabric.api.renderer.v1.Renderer;
 import net.fabricmc.fabric.api.renderer.v1.mesh.Mesh;
 import net.fabricmc.fabric.api.renderer.v1.mesh.MeshBuilder;
 import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
@@ -21,6 +23,20 @@ import net.minecraft.core.Direction;
 public abstract class ObjModelMakeQuadMixin {
 	private static final Direction CREATE_FALLBACK_FACE = Direction.values()[0];
 	private static boolean create$warnedMissingObjQuad = false;
+
+	@WrapOperation(
+		method = "makeQuad",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/fabricmc/fabric/api/renderer/v1/Renderer;meshBuilder()Lnet/fabricmc/fabric/api/renderer/v1/mesh/MeshBuilder;",
+			remap = false
+		),
+		require = 0
+	)
+	private MeshBuilder create$reuseScopedMeshBuilder(Renderer renderer, Operation<MeshBuilder> original) {
+		MeshBuilder scoped = ObjModelMeshBuilderScope.peek();
+		return scoped != null ? scoped : original.call(renderer);
+	}
 
 	@WrapOperation(
 		method = "makeQuad",
@@ -46,6 +62,26 @@ public abstract class ObjModelMakeQuadMixin {
 		require = 0
 	)
 	private BakedQuad create$handleNullQuadView(QuadView quadView, TextureAtlasSprite sprite, Operation<BakedQuad> original) {
+		if (quadView == null) {
+			if (!create$warnedMissingObjQuad) {
+				create$warnedMissingObjQuad = true;
+				Create.LOGGER.warn("OBJ model emitted no quad data during baking; using fallback quad");
+			}
+			return new BakedQuad(new int[32], -1, CREATE_FALLBACK_FACE, sprite, true);
+		}
+		return original.call(quadView, sprite);
+	}
+
+	@WrapOperation(
+		method = "makeQuad",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/fabricmc/fabric/api/renderer/v1/mesh/QuadView;toBakedQuad(Lnet/minecraft/class_1058;)Lnet/minecraft/class_777;",
+			remap = false
+		),
+		require = 0
+	)
+	private BakedQuad create$handleNullQuadViewIntermediary(QuadView quadView, TextureAtlasSprite sprite, Operation<BakedQuad> original) {
 		if (quadView == null) {
 			if (!create$warnedMissingObjQuad) {
 				create$warnedMissingObjQuad = true;
