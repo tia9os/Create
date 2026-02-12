@@ -555,8 +555,10 @@ public class CarriageContraptionEntity extends OrientedContraptionEntity {
 	public boolean startControlling(BlockPos controlsLocalPos, Player player) {
 		if (player == null || player.isSpectator())
 			return false;
+		if (carriage == null && level().isClientSide)
+			bindCarriage();
 		if (carriage == null)
-			return false;
+			return level().isClientSide;
 		if (carriage.train.derailed)
 			return false;
 
