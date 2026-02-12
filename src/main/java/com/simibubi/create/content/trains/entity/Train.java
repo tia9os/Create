@@ -436,13 +436,15 @@ public class Train {
 			}
 		}
 
+		boolean movingForStressDerail = Math.abs(speed) > 1 / 16f || Math.abs(distance) > 1 / 16f;
+
 		if (blocked) {
 			speed = 0;
 			navigation.cancelNavigation();
 			runtime.tick(level);
 			status.endOfTrack();
 
-		} else if (maxStress > 4) {
+		} else if (maxStress > 4 && movingForStressDerail) {
 			speed = 0;
 			navigation.cancelNavigation();
 			runtime.tick(level);
