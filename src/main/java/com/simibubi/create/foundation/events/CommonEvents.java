@@ -1,6 +1,7 @@
 package com.simibubi.create.foundation.events;
 
 import com.simibubi.create.Create;
+import com.simibubi.create.content.contraptions.actors.trainControls.ControlsServerHandler;
 import com.simibubi.create.content.equipment.zapper.ZapperInteractionHandler;
 import com.simibubi.create.content.equipment.zapper.ZapperItem;
 import com.simibubi.create.foundation.utility.ServerSpeedProvider;
@@ -18,6 +19,8 @@ public class CommonEvents {
 			Create.SCHEMATIC_RECEIVER.tick();
 			Create.LAGGER.tick();
 			ServerSpeedProvider.serverTick(server);
+			server.getAllLevels()
+				.forEach(ControlsServerHandler::tick);
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> Create.SCHEMATIC_RECEIVER.shutdown());
 	}

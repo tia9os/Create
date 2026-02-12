@@ -2,6 +2,7 @@ package com.simibubi.create.foundation.events;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
 import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
 import com.simibubi.create.content.trains.track.TrackBlockItem;
 import com.simibubi.create.content.trains.track.TrackBlockOutline;
@@ -27,6 +28,7 @@ public class ClientEvents {
 			return;
 
 		CreateClient.GLUE_HANDLER.tick();
+		ControlsHandler.tick();
 		ServerSpeedProvider.clientTick();
 		TrackTargetingClient.clientTick();
 		TrackPlacement.clientTick();
