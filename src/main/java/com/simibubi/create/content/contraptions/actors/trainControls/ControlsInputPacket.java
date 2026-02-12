@@ -51,8 +51,11 @@ public record ControlsInputPacket(List<Integer> activatedButtons, boolean press,
 			return;
 		}
 
-		if (ace.toGlobalVector(Vec3.atCenterOf(controlsPos), 0)
-				.closerThan(player.position(), 16))
+		boolean controllingThisContraption = ace.getControllingPlayer()
+			.filter(uniqueID::equals)
+			.isPresent();
+		if (controllingThisContraption || ace.toGlobalVector(Vec3.atCenterOf(controlsPos), 0)
+			.closerThan(player.position(), 32))
 			ControlsServerHandler.receivePressed(world, ace, controlsPos, uniqueID, activatedButtons, press);
 	}
 

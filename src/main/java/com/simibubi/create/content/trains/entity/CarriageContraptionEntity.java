@@ -591,7 +591,14 @@ public class CarriageContraptionEntity extends OrientedContraptionEntity {
 			return true;
 		if (player.isSpectator())
 			return false;
-		if (!toGlobalVector(VecHelper.getCenterOf(controlsLocalPos), 1).closerThan(player.position(), 8))
+		boolean controllingThisCarriage = getControllingPlayer()
+			.filter(player.getUUID()::equals)
+			.isPresent();
+		if (!controllingThisCarriage && !toGlobalVector(VecHelper.getCenterOf(controlsLocalPos), 1)
+			.closerThan(player.position(), 8))
+			return false;
+		if (controllingThisCarriage && !toGlobalVector(VecHelper.getCenterOf(controlsLocalPos), 1)
+			.closerThan(player.position(), 32))
 			return false;
 		if (heldControls.contains(5))
 			return false;
