@@ -1,3 +1,5 @@
+I was NOT allowed to publish the mod on MODRINTH/CURSEFORGE, BUT you may download it on GITHUB from the releases of this fork.
+
 <p align="center"><img src="./.idea/icon.png" alt="Logo" width="200"></p>
 <h1 align="center">Create  <br>
 	<a href="https://www.patreon.com/simibubi"><img src="https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dsimibubi%26type%3Dpatrons&style=flat&label=Supporters&color=ff5733" alt="Patreon"></a>
