@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import com.simibubi.create.infrastructure.fabric.item.ItemUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import io.netty.buffer.Unpooled;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -25,6 +26,7 @@ import com.simibubi.create.foundation.utility.CreateLang;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.TypedDataComponent;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -43,12 +45,13 @@ import net.minecraft.world.level.Level;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import com.simibubi.create.infrastructure.fabric.transfer.item.ItemStackHandler;
 import com.simibubi.create.infrastructure.fabric.transfer.item.ItemStackHandler;
 import io.github.fabricators_of_create.porting_lib.util.NetworkHooks;
 
-public class FilterItem extends Item implements MenuProvider, SupportsItemCopying {
+public class FilterItem extends Item implements MenuProvider, SupportsItemCopying, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	private FilterType type;
 
@@ -173,11 +176,18 @@ public class FilterItem extends Item implements MenuProvider, SupportsItemCopyin
 		ItemStack heldItem = player.getItemInHand(hand);
 
 		if (!player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
-			if (!world.isClientSide && player instanceof ServerPlayer)
-				player.openMenu(this);
+			if (!world.isClientSide && player instanceof ServerPlayer sp)
+				sp.openMenu(this);
 			return InteractionResultHolder.success(heldItem);
 		}
 		return InteractionResultHolder.pass(heldItem);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		ItemStack.STREAM_CODEC.encode(buffer, player.getMainHandItem());
+		return buffer;
 	}
 
 	@Override

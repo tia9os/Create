@@ -20,6 +20,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -134,6 +135,20 @@ public class StationBlock extends Block implements IBE<StationBlockEntity>, IWre
 			});
 		}
 
+		handleInteraction(level, pos, player);
+		return ItemInteractionResult.SUCCESS;
+	}
+
+	@Override
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+		if (player == null || player.isShiftKeyDown())
+			return InteractionResult.PASS;
+
+		handleInteraction(level, pos, player);
+		return InteractionResult.SUCCESS;
+	}
+
+	private void handleInteraction(Level level, BlockPos pos, Player player) {
 		InteractionResult result = onBlockEntityUse(level, pos, station -> {
 			ItemStack autoSchedule = station.getAutoSchedule();
 			if (autoSchedule.isEmpty())
@@ -148,19 +163,22 @@ public class StationBlock extends Block implements IBE<StationBlockEntity>, IWre
 			return InteractionResult.SUCCESS;
 		});
 
-		if (result == InteractionResult.PASS)
-			CatnipServices.PLATFORM.executeOnClientOnly(() -> () -> withBlockEntityDo(level, pos, be -> this.displayScreen(be, player)));
-		return ItemInteractionResult.SUCCESS;
+		if (result == InteractionResult.PASS) {
+			if (!level.isClientSide && player instanceof ServerPlayer sp)
+				CatnipServices.NETWORK.sendToClient(sp, new OpenStationScreenPacket(pos));
+		}
 	}
 
 	@Environment(value = EnvType.CLIENT)
 	protected void displayScreen(StationBlockEntity be, Player player) {
 		if (!(player instanceof LocalPlayer))
 			return;
-		GlobalStation station = be.getStation();
 		BlockState blockState = be.getBlockState();
-		if (station == null || blockState == null)
+		if (blockState == null)
 			return;
+		GlobalStation station = be.getStation();
+		if (station == null)
+			station = new GlobalStation();
 		boolean assembling = blockState.getBlock() == this && blockState.getValue(ASSEMBLING);
 		ScreenOpener.open(assembling ? new AssemblyScreen(be, station) : new StationScreen(be, station));
 	}

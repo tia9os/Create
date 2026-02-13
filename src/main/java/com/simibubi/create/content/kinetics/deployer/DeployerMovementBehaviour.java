@@ -182,6 +182,10 @@ public class DeployerMovementBehaviour implements MovementBehaviour {
 	public void tick(MovementContext context) {
 		if (context.world.isClientSide)
 			return;
+
+		// Contraption deployers also use fake players that need manual cooldown ticking.
+		if (context.temporaryData instanceof DeployerFakePlayer existingPlayer)
+			existingPlayer.getCooldowns().tick();
 		if (!context.stall)
 			return;
 

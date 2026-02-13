@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 
 import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllSoundEvents;
+import com.simibubi.create.Create;
 import com.simibubi.create.api.equipment.goggles.IHaveHoveringInformation;
 import com.simibubi.create.content.contraptions.actors.seat.SeatEntity;
 import com.simibubi.create.content.logistics.BigItemStack;
@@ -28,6 +29,7 @@ import com.simibubi.create.foundation.utility.CreateLang;
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.nbt.NBTHelper;
 import net.createmod.catnip.platform.CatnipServices;
+import io.netty.buffer.Unpooled;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -35,7 +37,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -49,6 +53,7 @@ import net.minecraft.world.phys.Vec3;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SidedStorageBlockEntity;
@@ -264,7 +269,7 @@ public class StockTickerBlockEntity extends StockCheckingBlockEntity implements 
 		level.addParticle(new WiFiParticle.Data(), vec3.x, vec3.y, vec3.z, 1, 1, 1);
 	}
 
-	public class CategoryMenuProvider implements MenuProvider {
+	public class CategoryMenuProvider implements MenuProvider, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 		@Override
 		public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
@@ -276,9 +281,16 @@ public class StockTickerBlockEntity extends StockCheckingBlockEntity implements 
 			return Component.empty();
 		}
 
+		@Override
+		public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+			RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+			buffer.writeBlockPos(worldPosition);
+			return buffer;
+		}
+
 	}
 
-	public class RequestMenuProvider implements MenuProvider {
+	public class RequestMenuProvider implements MenuProvider, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 		@Override
 		public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
@@ -288,6 +300,15 @@ public class StockTickerBlockEntity extends StockCheckingBlockEntity implements 
 		@Override
 		public Component getDisplayName() {
 			return Component.empty();
+		}
+
+		@Override
+		public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+			RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+			buffer.writeBoolean(behaviour.mayAdministrate(player));
+			buffer.writeBoolean(Create.LOGISTICS.isLocked(behaviour.freqId));
+			buffer.writeBlockPos(worldPosition);
+			return buffer;
 		}
 
 	}

@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.Direction;
 
 import org.jetbrains.annotations.Nullable;
@@ -39,6 +40,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap.Builder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -57,6 +59,7 @@ import net.minecraft.world.phys.Vec3;
 
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SidedStorageBlockEntity;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
@@ -67,7 +70,7 @@ import com.simibubi.create.infrastructure.fabric.transfer.item.ItemStackHandler;
 
 import org.jetbrains.annotations.Nullable;
 
-public class ToolboxBlockEntity extends SmartBlockEntity implements MenuProvider, Nameable, SidedStorageBlockEntity {
+public class ToolboxBlockEntity extends SmartBlockEntity implements MenuProvider, Nameable, SidedStorageBlockEntity, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public LerpedFloat lid = LerpedFloat.linear()
 		.startWithValue(0);
@@ -354,6 +357,13 @@ public class ToolboxBlockEntity extends SmartBlockEntity implements MenuProvider
 	@Override
 	public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
 		return ToolboxMenu.create(id, inv, this);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		sendToMenu(buffer);
+		return buffer;
 	}
 
 	@Override

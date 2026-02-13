@@ -93,6 +93,7 @@ import com.simibubi.create.content.trains.graph.TrackGraphRollCallPacket;
 import com.simibubi.create.content.trains.graph.TrackGraphSyncPacket;
 import com.simibubi.create.content.trains.schedule.ScheduleEditPacket;
 import com.simibubi.create.content.trains.signal.SignalEdgeGroupPacket;
+import com.simibubi.create.content.trains.station.OpenStationScreenPacket;
 import com.simibubi.create.content.trains.station.StationEditPacket;
 import com.simibubi.create.content.trains.station.TrainEditPacket;
 import com.simibubi.create.content.trains.station.TrainEditPacket.TrainEditReturnPacket;
@@ -224,6 +225,7 @@ public enum AllPackets implements BasePacketPayload.PacketTypeProvider {
 	S_TRAIN_HUD(TrainHUDUpdatePacket.Clientbound.class, TrainHUDUpdatePacket.Clientbound.STREAM_CODEC),
 	S_TRAIN_HONK(HonkPacket.Clientbound.class, HonkPacket.Clientbound.STREAM_CODEC),
 	S_TRAIN_PROMPT(TrainPromptPacket.class, TrainPromptPacket.STREAM_CODEC),
+	OPEN_STATION_SCREEN(OpenStationScreenPacket.class, OpenStationScreenPacket.STREAM_CODEC),
 	CONTRAPTION_RELOCATION(ContraptionRelocationPacket.class, ContraptionRelocationPacket.STREAM_CODEC),
 	TRACK_GRAPH_ROLL_CALL(TrackGraphRollCallPacket.class, TrackGraphRollCallPacket.STREAM_CODEC),
 	S_PLACE_ARM(ArmPlacementPacket.ClientBoundRequest.class, ArmPlacementPacket.ClientBoundRequest.STREAM_CODEC),

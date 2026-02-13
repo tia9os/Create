@@ -33,11 +33,13 @@ import com.simibubi.create.infrastructure.config.AllConfigs;
 import com.simibubi.create.infrastructure.config.CSchematics;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import net.createmod.catnip.codecs.CatnipCodecUtils;
 import net.createmod.catnip.data.Iterate;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
@@ -53,9 +55,11 @@ import net.minecraft.core.component.DataComponentMap.Builder;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -89,7 +93,7 @@ import com.simibubi.create.infrastructure.fabric.transfer.TransferUtil;
 
 import io.github.fabricators_of_create.porting_lib.util.StorageProvider;
 
-public class SchematicannonBlockEntity extends SmartBlockEntity implements MenuProvider, CustomRenderBoundingBoxBlockEntity {
+public class SchematicannonBlockEntity extends SmartBlockEntity implements MenuProvider, CustomRenderBoundingBoxBlockEntity, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public static final int NEIGHBOUR_CHECKING = 100;
 	public static final int MAX_ANCHOR_DISTANCE = 256;
@@ -845,6 +849,13 @@ if (printer.isErrored())
 	@Override
 	public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
 		return SchematicannonMenu.create(id, inv, this);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		sendToMenu(buffer);
+		return buffer;
 	}
 
 	@Override

@@ -11,6 +11,12 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 public class CompositeModelGetQuadsWarningMixin {
 	private static final StackTraceElement[] EMPTY_STACK_TRACE = new StackTraceElement[0];
 
+	// Porting Lib beta.54 misses this override; defaulting to vanilla adapter causes
+	// incorrect quad paths in Fabric's renderer for composite baked models.
+	public boolean isVanillaAdapter() {
+		return false;
+	}
+
 	@WrapOperation(
 		method = "getQuads",
 		at = @At(

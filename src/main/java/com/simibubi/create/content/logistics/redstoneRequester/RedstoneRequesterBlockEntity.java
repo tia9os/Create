@@ -10,12 +10,15 @@ import com.simibubi.create.content.logistics.stockTicker.StockCheckingBlockEntit
 
 import net.createmod.catnip.codecs.CatnipCodecUtils;
 import net.createmod.catnip.platform.CatnipServices;
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -26,10 +29,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import io.github.fabricators_of_create.porting_lib.util.NetworkHooks;
 
-public class RedstoneRequesterBlockEntity extends StockCheckingBlockEntity implements MenuProvider {
+public class RedstoneRequesterBlockEntity extends StockCheckingBlockEntity implements MenuProvider, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public boolean allowPartialRequests;
 	public PackageOrder encodedRequest = PackageOrder.empty();
@@ -128,7 +132,8 @@ public class RedstoneRequesterBlockEntity extends StockCheckingBlockEntity imple
 		if (!behaviour.mayInteractMessage(player))
 			return InteractionResult.SUCCESS;
 
-		player.openMenu(this);
+		if (player instanceof ServerPlayer sp)
+			sp.openMenu(this);
 		return InteractionResult.SUCCESS;
 	}
 
@@ -140,6 +145,13 @@ public class RedstoneRequesterBlockEntity extends StockCheckingBlockEntity imple
 	@Override
 	public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
 		return RedstoneRequesterMenu.create(pContainerId, pPlayerInventory, this);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		buffer.writeBlockPos(getBlockPos());
+		return buffer;
 	}
 
 	public void playEffect(boolean success) {

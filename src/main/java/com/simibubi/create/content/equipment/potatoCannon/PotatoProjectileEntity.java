@@ -9,7 +9,6 @@ import com.simibubi.create.AllEnchantments;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.api.equipment.potatoCannon.PotatoCannonProjectileType;
 import com.simibubi.create.api.equipment.potatoCannon.PotatoProjectileRenderMode;
-import com.simibubi.create.api.registry.CreateRegistries;
 import com.simibubi.create.content.equipment.potatoCannon.AllPotatoProjectileRenderModes.StuckToEntity;
 import com.simibubi.create.foundation.advancement.AllAdvancements;
 import com.simibubi.create.foundation.damageTypes.CreateDamageSources;
@@ -66,12 +65,12 @@ public class PotatoProjectileEntity extends AbstractHurtingProjectile implements
 	}
 
 	public void setItem(ItemStack stack) {
-		this.stack = stack;
-		type = PotatoCannonProjectileType.getTypeForItem(level().registryAccess(), stack.getItem())
-			.orElseGet(() -> level().registryAccess()
-				.registryOrThrow(CreateRegistries.POTATO_PROJECTILE_TYPE)
-				.getHolderOrThrow(AllPotatoProjectileTypes.FALLBACK))
-			.value();
+		this.stack = stack.copyWithCount(1);
+		type = PotatoCannonProjectileType.getTypeValueForItem(level().registryAccess(), stack.getItem())
+			.orElseGet(() -> new PotatoCannonProjectileType.Builder()
+				.damage(0)
+				.addItems(stack.getItem())
+				.build());
 	}
 
 	public void setEnchantmentEffectsFromCannon(ItemStack cannon) {
@@ -338,14 +337,18 @@ public class PotatoProjectileEntity extends AbstractHurtingProjectile implements
 
 	@Override
 	public void writeSpawnData(RegistryFriendlyByteBuf buffer) {
-		CompoundTag compound = new CompoundTag();
-		addAdditionalSaveData(compound);
-		buffer.writeNbt(compound);
+		ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, stack);
+		buffer.writeFloat(additionalDamageMult);
+		buffer.writeFloat(additionalKnockback);
+		buffer.writeFloat(recoveryChance);
 	}
 
 	@Override
 	public void readSpawnData(RegistryFriendlyByteBuf additionalData) {
-		readAdditionalSaveData(additionalData.readNbt());
+		setItem(ItemStack.OPTIONAL_STREAM_CODEC.decode(additionalData));
+		additionalDamageMult = additionalData.readFloat();
+		additionalKnockback = additionalData.readFloat();
+		recoveryChance = additionalData.readFloat();
 	}
 
 }

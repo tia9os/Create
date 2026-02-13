@@ -26,6 +26,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction.Axis;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -64,17 +65,37 @@ public class PotatoCannonItem extends ProjectileWeaponItem implements CustomArmP
 
 	@Nullable
 	public static Ammo getAmmo(Player player, ItemStack heldStack) {
-		ItemStack ammoStack = player.getProjectile(heldStack);
-		if (ammoStack.isEmpty()) {
-			return null;
+		RegistryAccess registryAccess = player.level().registryAccess();
+
+		Ammo preferredAmmo = getAmmoFromStack(registryAccess, player.getProjectile(heldStack));
+		if (preferredAmmo != null)
+			return preferredAmmo;
+
+		// Fallback path for environments where getProjectile() misses custom projectile items.
+		Ammo offHandAmmo = getAmmoFromStack(registryAccess, player.getOffhandItem());
+		if (offHandAmmo != null)
+			return offHandAmmo;
+
+		for (int i = 0; i < player.getInventory().items.size(); i++) {
+			Ammo inventoryAmmo = getAmmoFromStack(registryAccess, player.getInventory().getItem(i));
+			if (inventoryAmmo != null)
+				return inventoryAmmo;
 		}
 
-		Optional<Holder.Reference<PotatoCannonProjectileType>> optionalType = PotatoCannonProjectileType.getTypeForItem(player.level().registryAccess(), ammoStack.getItem());
-		if (optionalType.isEmpty()) {
-			return null;
-		}
+		return null;
+	}
 
-		return new Ammo(ammoStack, optionalType.get().value());
+	@Nullable
+	private static Ammo getAmmoFromStack(RegistryAccess registryAccess, ItemStack ammoStack) {
+		if (ammoStack.isEmpty())
+			return null;
+
+		Optional<PotatoCannonProjectileType> optionalType =
+			PotatoCannonProjectileType.getTypeValueForItem(registryAccess, ammoStack.getItem());
+		if (optionalType.isEmpty())
+			return null;
+
+		return new Ammo(ammoStack, optionalType.get());
 	}
 
 	@Override
@@ -235,7 +256,7 @@ public class PotatoCannonItem extends ProjectileWeaponItem implements CustomArmP
 
 	@Override
 	public Predicate<ItemStack> getAllSupportedProjectiles() {
-		return stack -> PotatoCannonProjectileType.getTypeForItem(GlobalRegistryAccess.getOrThrow(), stack.getItem())
+		return stack -> PotatoCannonProjectileType.getTypeValueForItem(GlobalRegistryAccess.getOrThrow(), stack.getItem())
 			.isPresent();
 	}
 
@@ -263,7 +284,8 @@ public class PotatoCannonItem extends ProjectileWeaponItem implements CustomArmP
 		return AllConfigs.server().equipment.maxPotatoCannonShots.get();
 	}
 
-	public boolean onEntitySwing(ItemStack stack, LivingEntity entity, InteractionHand hand) {
+	@Override
+	public boolean onEntitySwing(ItemStack stack, LivingEntity entity) {
 		return false;
 	}
 

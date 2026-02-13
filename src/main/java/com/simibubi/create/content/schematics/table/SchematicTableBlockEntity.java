@@ -6,11 +6,15 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.utility.CreateLang;
 import com.simibubi.create.foundation.utility.IInteractionChecker;
+import io.netty.buffer.Unpooled;
 
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -22,7 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import com.simibubi.create.infrastructure.fabric.transfer.item.ItemStackHandler;
 
 
-public class SchematicTableBlockEntity extends SmartBlockEntity implements MenuProvider, IInteractionChecker {
+public class SchematicTableBlockEntity extends SmartBlockEntity implements MenuProvider, IInteractionChecker, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public SchematicTableInventory inventory;
 	public boolean isUploading;
@@ -104,6 +108,13 @@ public class SchematicTableBlockEntity extends SmartBlockEntity implements MenuP
 	@Override
 	public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
 		return SchematicTableMenu.create(id, inv, this);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		sendToMenu(buffer);
+		return buffer;
 	}
 
 	@Override

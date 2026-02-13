@@ -85,6 +85,8 @@ public class StationScreen extends AbstractStationScreen {
 
 		Runnable assemblyCallback = () -> {
 			switchingToAssemblyMode = true;
+			CatnipServices.NETWORK.sendToServer(
+				StationEditPacket.configure(blockEntity.getBlockPos(), true, nameBox.getValue(), doorControl));
 			minecraft.setScreen(new AssemblyScreen(blockEntity, station));
 		};
 

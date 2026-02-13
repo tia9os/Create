@@ -17,12 +17,14 @@ import com.simibubi.create.content.schematics.requirement.ItemRequirement.ItemUs
 import com.simibubi.create.foundation.networking.ISyncPersistentData;
 import com.simibubi.create.foundation.utility.IInteractionChecker;
 import com.simibubi.create.foundation.utility.PersistentDataHelper;
+import io.netty.buffer.Unpooled;
 
 import net.createmod.catnip.data.Couple;
 import net.createmod.catnip.math.VecHelper;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -437,7 +439,7 @@ public class BlueprintEntity extends HangingEntity
 		}
 
 		if (!level().isClientSide && player instanceof ServerPlayer) {
-			player.openMenu(section);
+			((ServerPlayer) player).openMenu(section);
 		}
 
 		return InteractionResult.SUCCESS;
@@ -498,7 +500,7 @@ public class BlueprintEntity extends HangingEntity
 		return sectionCache.computeIfAbsent(index, i -> new BlueprintSection(i));
 	}
 
-	class BlueprintSection implements MenuProvider, IInteractionChecker {
+	class BlueprintSection implements MenuProvider, IInteractionChecker, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 		int index;
 		Couple<ItemStack> cachedDisplayItems;
 		public boolean inferredIcon = false;
@@ -555,6 +557,14 @@ public class BlueprintEntity extends HangingEntity
 		@Override
 		public boolean canPlayerUse(Player player) {
 			return BlueprintEntity.this.canPlayerUse(player);
+		}
+
+		@Override
+		public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+			RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+			buffer.writeVarInt(BlueprintEntity.this.getId());
+			buffer.writeVarInt(index);
+			return buffer;
 		}
 
 	}

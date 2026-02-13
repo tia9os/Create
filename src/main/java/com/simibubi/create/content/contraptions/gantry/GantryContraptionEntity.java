@@ -205,11 +205,24 @@ public class GantryContraptionEntity extends AbstractContraptionEntity {
 
 	@Override
 	public void teleportTo(double p_70634_1_, double p_70634_3_, double p_70634_5_) {
+		if (level().isClientSide) {
+			setPosRaw(p_70634_1_, p_70634_3_, p_70634_5_);
+			clientOffsetDiff = 0;
+			return;
+		}
+		super.teleportTo(p_70634_1_, p_70634_3_, p_70634_5_);
 	}
 
 	@Override
 	@Environment(EnvType.CLIENT)
 	public void lerpTo(double pX, double pY, double pZ, float pYRot, float pXRot, int pSteps) {
+		if (movementAxis == null) {
+			setPosRaw(pX, pY, pZ);
+			return;
+		}
+		double trackedCoord = movementAxis.getAxis()
+			.choose(pX, pY, pZ);
+		clientOffsetDiff = trackedCoord - getAxisCoord();
 	}
 
 	@Override

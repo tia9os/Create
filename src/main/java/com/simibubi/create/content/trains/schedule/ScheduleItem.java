@@ -15,14 +15,17 @@ import com.simibubi.create.foundation.recipe.ItemCopyingRecipe.SupportsItemCopyi
 import com.simibubi.create.foundation.utility.CreateLang;
 
 import net.createmod.catnip.data.Couple;
+import io.netty.buffer.Unpooled;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
@@ -46,7 +49,7 @@ import net.fabricmc.api.Environment;
 
 import io.github.fabricators_of_create.porting_lib.util.NetworkHooks;
 
-public class ScheduleItem extends Item implements MenuProvider, SupportsItemCopying {
+public class ScheduleItem extends Item implements MenuProvider, SupportsItemCopying, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public ScheduleItem(Properties pProperties) {
 		super(pProperties);
@@ -64,11 +67,18 @@ public class ScheduleItem extends Item implements MenuProvider, SupportsItemCopy
 		ItemStack heldItem = player.getItemInHand(hand);
 
 		if (!player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
-			if (!world.isClientSide && player instanceof ServerPlayer)
-				player.openMenu(this);
+			if (!world.isClientSide && player instanceof ServerPlayer sp)
+				sp.openMenu(this);
 			return InteractionResultHolder.success(heldItem);
 		}
 		return InteractionResultHolder.pass(heldItem);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		ItemStack.STREAM_CODEC.encode(buffer, player.getMainHandItem());
+		return buffer;
 	}
 
 	public InteractionResult handScheduleTo(ItemStack pStack, Player pPlayer, LivingEntity pInteractionTarget,

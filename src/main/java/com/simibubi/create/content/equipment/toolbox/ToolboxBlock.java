@@ -20,6 +20,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -162,8 +163,10 @@ public class ToolboxBlock extends HorizontalDirectionalBlock implements SimpleWa
 		if (level.isClientSide)
 			return ItemInteractionResult.SUCCESS;
 
-		withBlockEntityDo(level, pos,
-			toolbox -> player.openMenu(toolbox));
+		if (player instanceof ServerPlayer sp) {
+			withBlockEntityDo(level, pos,
+				toolbox -> sp.openMenu(toolbox));
+		}
 		return ItemInteractionResult.SUCCESS;
 	}
 

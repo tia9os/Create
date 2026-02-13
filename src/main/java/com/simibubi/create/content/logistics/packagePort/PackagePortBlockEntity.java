@@ -13,13 +13,16 @@ import com.simibubi.create.foundation.blockEntity.behaviour.animatedContainer.An
 import com.simibubi.create.foundation.item.ItemHelper;
 import com.simibubi.create.foundation.item.SmartInventory;
 import com.simibubi.create.foundation.utility.CreateLang;
+import io.netty.buffer.Unpooled;
 
 import net.createmod.catnip.codecs.CatnipCodecUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -31,13 +34,14 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SidedStorageBlockEntity;
 
 import org.jetbrains.annotations.Nullable;
 
-public abstract class PackagePortBlockEntity extends SmartBlockEntity implements MenuProvider, SidedStorageBlockEntity {
+public abstract class PackagePortBlockEntity extends SmartBlockEntity implements MenuProvider, SidedStorageBlockEntity, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public boolean acceptsPackages;
 	public String addressFilter;
@@ -151,7 +155,8 @@ public abstract class PackagePortBlockEntity extends SmartBlockEntity implements
 			return ItemInteractionResult.SUCCESS;
 		}
 
-		player.openMenu(this);
+		if (player instanceof ServerPlayer sp)
+			sp.openMenu(this);
 		return ItemInteractionResult.SUCCESS;
 	}
 
@@ -200,6 +205,13 @@ public abstract class PackagePortBlockEntity extends SmartBlockEntity implements
 	@Override
 	public AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
 		return PackagePortMenu.create(pContainerId, pPlayerInventory, this);
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		buffer.writeBlockPos(getBlockPos());
+		return buffer;
 	}
 
 	public int getComparatorOutput() {

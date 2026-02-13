@@ -205,6 +205,10 @@ public class DeployerBlockEntity extends KineticBlockEntity implements SidedStor
 			overflowItems.removeIf(ItemStack::isEmpty);
 		}
 
+		// Deployer fake players are not naturally world-ticked, so item cooldowns must be advanced manually.
+		if (!level.isClientSide && player != null)
+			player.getCooldowns().tick();
+
 		if (getSpeed() == 0)
 			return;
 		if (!level.isClientSide && player != null && player.blockBreakingProgress != null) {

@@ -10,11 +10,14 @@ import com.simibubi.create.foundation.utility.AdventureUtil;
 
 import net.createmod.catnip.data.Couple;
 import net.createmod.catnip.platform.CatnipServices;
+import io.netty.buffer.Unpooled;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -39,7 +42,7 @@ import net.fabricmc.api.Environment;
 import io.github.fabricators_of_create.porting_lib.item.UseFirstBehaviorItem;
 import com.simibubi.create.infrastructure.fabric.transfer.item.ItemStackHandler;
 
-public class LinkedControllerItem extends Item implements MenuProvider, UseFirstBehaviorItem {
+public class LinkedControllerItem extends Item implements MenuProvider, UseFirstBehaviorItem, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public LinkedControllerItem(Properties properties) {
 		super(properties);
@@ -92,8 +95,8 @@ public class LinkedControllerItem extends Item implements MenuProvider, UseFirst
 		ItemStack heldItem = player.getItemInHand(hand);
 
 		if (player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
-			if (!world.isClientSide && player instanceof ServerPlayer && player.mayBuild())
-				player.openMenu(this);
+			if (!world.isClientSide && player instanceof ServerPlayer sp && player.mayBuild())
+				sp.openMenu(this);
 			return InteractionResultHolder.success(heldItem);
 		}
 
@@ -144,6 +147,13 @@ public class LinkedControllerItem extends Item implements MenuProvider, UseFirst
 	@Override
 	public Component getDisplayName() {
 		return getDescription();
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		ItemStack.STREAM_CODEC.encode(buffer, player.getMainHandItem());
+		return buffer;
 	}
 
 //	@Override

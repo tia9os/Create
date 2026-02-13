@@ -16,6 +16,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Holder.Reference;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.RegistryCodecs;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Item;
@@ -51,11 +52,35 @@ public record PotatoCannonProjectileType(HolderSet<Item> items, int reloadTicks,
 	).apply(i, PotatoCannonProjectileType::new));
 
 	public static Optional<Reference<PotatoCannonProjectileType>> getTypeForItem(RegistryAccess registryAccess, Item item) {
-		// Cache this if it causes performance issues, but it probably won't
+		// Holder ownership can differ across layered/dynamic registry views; fall back to direct item identity.
 		return registryAccess.lookupOrThrow(CreateRegistries.POTATO_PROJECTILE_TYPE)
 			.listElements()
-			.filter(ref -> ref.value().items.contains(item.builtInRegistryHolder()))
+			.filter(ref -> ref.value().items.contains(item.builtInRegistryHolder())
+				|| ref.value().items.stream().anyMatch(holder -> holder.value() == item))
 			.findFirst();
+	}
+
+	public static Optional<PotatoCannonProjectileType> getTypeValueForItem(RegistryAccess registryAccess, Item item) {
+		Optional<Reference<PotatoCannonProjectileType>> fromRegistry = getTypeForItem(registryAccess, item);
+		if (fromRegistry.isPresent())
+			return Optional.of(fromRegistry.get().value());
+		return Optional.ofNullable(getEmergencyFoodType(item));
+	}
+
+	private static PotatoCannonProjectileType getEmergencyFoodType(Item item) {
+		ItemStack defaultStack = item.getDefaultInstance();
+		if (defaultStack.isEmpty() || !defaultStack.has(DataComponents.FOOD))
+			return null;
+
+		// Safety fallback for dev/runtime environments where dynamic potato projectile data is missing.
+		return new PotatoCannonProjectileType.Builder()
+			.damage(4)
+			.reloadTicks(12)
+			.velocity(1.2f)
+			.knockback(0.4f)
+			.renderTumbling()
+			.addItems(item)
+			.build();
 	}
 
 	public boolean preEntityHit(ItemStack stack, EntityHitResult ray) {

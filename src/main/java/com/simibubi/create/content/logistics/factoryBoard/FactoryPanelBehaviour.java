@@ -48,6 +48,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsFormatt
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import com.simibubi.create.foundation.utility.CreateLang;
 
+import io.netty.buffer.Unpooled;
 import net.createmod.catnip.animation.LerpedFloat;
 import net.createmod.catnip.animation.LerpedFloat.Chaser;
 import net.createmod.catnip.codecs.CatnipCodecUtils;
@@ -62,6 +63,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
@@ -81,8 +83,9 @@ import net.minecraft.world.phys.BlockHitResult;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
-public class FactoryPanelBehaviour extends FilteringBehaviour implements MenuProvider {
+public class FactoryPanelBehaviour extends FilteringBehaviour implements MenuProvider, ExtendedScreenHandlerFactory<RegistryFriendlyByteBuf> {
 
 	public static final BehaviourType<FactoryPanelBehaviour> TOP_LEFT = new BehaviourType<>();
 	public static final BehaviourType<FactoryPanelBehaviour> TOP_RIGHT = new BehaviourType<>();
@@ -1064,6 +1067,13 @@ public class FactoryPanelBehaviour extends FilteringBehaviour implements MenuPro
 		return blockEntity.getBlockState()
 			.getBlock()
 			.getName();
+	}
+
+	@Override
+	public RegistryFriendlyByteBuf getScreenOpeningData(ServerPlayer player) {
+		RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+		FactoryPanelPosition.STREAM_CODEC.encode(buffer, getPanelPosition());
+		return buffer;
 	}
 
 	public String getFrogAddress() {
