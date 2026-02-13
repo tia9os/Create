@@ -1,6 +1,7 @@
 package com.simibubi.create.foundation.events;
 
 import com.simibubi.create.Create;
+import com.simibubi.create.content.contraptions.ContraptionHandler;
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsServerHandler;
 import com.simibubi.create.content.equipment.zapper.ZapperInteractionHandler;
 import com.simibubi.create.content.equipment.zapper.ZapperItem;
@@ -23,6 +24,7 @@ public class CommonEvents {
 			ServerSpeedProvider.serverTick(server);
 			server.getAllLevels()
 				.forEach(level -> {
+					ContraptionHandler.tick(level);
 					Create.RAILWAYS.sided(level)
 						.tick(level);
 					ControlsServerHandler.tick(level);

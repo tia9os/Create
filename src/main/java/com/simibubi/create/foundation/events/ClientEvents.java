@@ -2,6 +2,7 @@ package com.simibubi.create.foundation.events;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.contraptions.ContraptionHandler;
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
 import com.simibubi.create.content.trains.TrainHUD;
 import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
@@ -28,6 +29,7 @@ public class ClientEvents {
 		if (client.level == null || client.player == null)
 			return;
 
+		ContraptionHandler.tick(client.level);
 		CreateClient.GLUE_HANDLER.tick();
 		ControlsHandler.tick();
 		TrainHUD.tick();

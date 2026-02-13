@@ -97,6 +97,7 @@ public abstract class AbstractContraptionEntity extends Entity implements IEntit
 	protected boolean prevPosInvalid;
 	private boolean skipActorStop;
 	private int clientSpawnDataGraceTicks = 20;
+	private boolean collisionRegistered;
 
 	/*
 	 * staleTicks are a band-aid to prevent a frame or two of missing blocks between
@@ -382,6 +383,11 @@ public abstract class AbstractContraptionEntity extends Entity implements IEntit
 			}
 			discard();
 			return;
+		}
+
+		if (!collisionRegistered) {
+			ContraptionHandler.addSpawnedContraptionsToCollisionList(this, level());
+			collisionRegistered = true;
 		}
 
 		collidingEntities.entrySet()
