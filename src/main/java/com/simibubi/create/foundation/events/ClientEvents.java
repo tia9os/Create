@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.contraptions.ContraptionHandler;
 import com.simibubi.create.content.contraptions.actors.trainControls.ControlsHandler;
+import com.simibubi.create.content.kinetics.turntable.TurntableHandler;
 import com.simibubi.create.content.trains.TrainHUD;
 import com.simibubi.create.content.trains.track.CurvedTrackInteraction;
 import com.simibubi.create.content.trains.track.TrackBlockItem;
@@ -42,6 +43,8 @@ public class ClientEvents {
 	private static void onRenderWorld(WorldRenderContext event) {
 		if (event.matrixStack() == null)
 			return;
+
+		TurntableHandler.gameRenderFrame();
 
 		SuperRenderTypeBuffer buffer = DefaultSuperRenderTypeBuffer.getInstance();
 		Vec3 camera = Minecraft.getInstance()
